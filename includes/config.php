@@ -14,6 +14,10 @@ if (!defined('NFT_CHECKOUT_BASE_URL')) {
     define('NFT_CHECKOUT_BASE_URL', NFT_CHECKOUT_PROTOCOL . NFT_CHECKOUT_HOST);
 }
 
+if (!defined('NFT_CHECKOUT_API_BASE_URL')) {
+	define('NFT_CHECKOUT_API_BASE_URL', NFT_CHECKOUT_BASE_URL . '/payment-api');
+}
+
 if (!defined('NFT_CHECKOUT_PLUGIN_VERSION')) {
     define('NFT_CHECKOUT_PLUGIN_VERSION', '1.0.0');
 }
