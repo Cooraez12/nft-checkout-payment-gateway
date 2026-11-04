@@ -9,7 +9,7 @@ The NFT Checkout plugin for WooCommerce 8.9+ allows you to accept fiat payments 
 **Requires at least:** 6.2  
 **Tested up to:** 7.1  
 **Requires PHP:** 8.0  
-**Stable tag:** 1.0.0  
+**Stable tag:** 1.0.1  
 **License:** GPLv3 or later  
 **License URI:** [GPLv3 License](https://www.gnu.org/licenses/gpl-3.0.html)
 
@@ -139,9 +139,16 @@ For any issues or enhancement requests with this plugin, please contact the RT.a
 
 ## Documentation
 
-The official documentation for this plugin is available at: [https://qa.rt.app/docs/wordpress-plugin](https://qa.rt.app/docs/wordpress-plugin)
+The official documentation for this plugin is available at: [https://rt.app/docs/wordpress-plugin](https://rt.app/docs/wordpress-plugin)
 
 ## Changelog
+
+### Version 1.0.1
+
+- **Security:** The account status sync no longer sends secret keys to the API. Accounts are identified by public key and the request is HMAC-signed.
+- **Security:** All API requests are always sent over HTTPS, regardless of the store's own protocol.
+- **Environments:** Staging/development sites talk to the QA host automatically; `NFT_CHECKOUT_HOST` in `wp-config.php` still overrides the host.
+- **Links:** Documentation and Support links now point at the production site.
 
 ### Version 1.0.0 (Initial Release)
 
@@ -149,7 +156,7 @@ The official documentation for this plugin is available at: [https://qa.rt.app/d
 
 ## Support
 
-For customer support, visit: [https://qa.rt.app/contact-us](https://qa.rt.app/contact-us)
+For customer support, visit: [https://rt.app/contact-us](https://rt.app/contact-us)
 
 ## Why Choose NFT Checkout?
 

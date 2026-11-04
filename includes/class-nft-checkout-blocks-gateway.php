@@ -24,7 +24,7 @@ class NFT_CHECKOUT_Blocks_Gateway extends AbstractPaymentMethodType {
 			'nft-checkout-blocks-js',
 			plugin_dir_url(NFT_CHECKOUT_PAYMENT_GATEWAY_FILE) . 'assets/js/nft-checkout-blocks.js',
 			['wc-blocks-registry', 'wc-settings', 'wp-element'],
-			'1.0.0',
+			NFT_CHECKOUT_PLUGIN_VERSION,
 			true
 		);
 		return ['nft-checkout-blocks-js'];

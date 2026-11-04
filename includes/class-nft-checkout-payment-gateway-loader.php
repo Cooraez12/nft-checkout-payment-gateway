@@ -348,7 +348,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 				'nft-checkout-blocks-js',
 				plugin_dir_url( NFT_CHECKOUT_PAYMENT_GATEWAY_FILE ) . 'assets/js/nft-checkout-blocks.js',
 				[ 'wc-blocks-registry', 'wc-settings', 'wp-element' ],
-				'1.0.0',
+				NFT_CHECKOUT_PLUGIN_VERSION,
 				true
 			);
 
@@ -411,8 +411,8 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 	{
 		if (plugin_basename(NFT_CHECKOUT_PAYMENT_GATEWAY_FILE) === $file) {
 			$row_meta = [
-				'docs'    => '<a href="' . esc_url(apply_filters('nft_checkout_docs_url', 'https://qa.rt.app/docs/wordpress-plugin')) . '" target="_blank">' . esc_html__('Documentation', 'nft-checkout-payment-gateway') . '</a>',
-				'support' => '<a href="' . esc_url(apply_filters('nft_checkout_support_url', 'https://qa.rt.app/contact-us')) . '" target="_blank">' . esc_html__('Support', 'nft-checkout-payment-gateway') . '</a>',
+				'docs'    => '<a href="' . esc_url(apply_filters('nft_checkout_docs_url', 'https://rt.app/docs/wordpress-plugin')) . '" target="_blank">' . esc_html__('Documentation', 'nft-checkout-payment-gateway') . '</a>',
+				'support' => '<a href="' . esc_url(apply_filters('nft_checkout_support_url', 'https://rt.app/contact-us')) . '" target="_blank">' . esc_html__('Support', 'nft-checkout-payment-gateway') . '</a>',
 			];
 
 			$links = array_merge($links, $row_meta);
@@ -489,7 +489,13 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 		$accountsData     = [];
 		$first_public_key = '';
 		$first_secret_key = '';
+		$timestamp        = (string) time();
 
+		// NFT-03: Never send secret keys to the remote API. Each account is identified by its
+		// public key and proves ownership of the secret with an HMAC-SHA256 signature:
+		//   signature = HMAC-SHA256(secret_key, timestamp . '.' . public_key)
+		// The whole request is additionally signed in the X-Timestamp / X-Signature headers below.
+		// Do NOT reintroduce a 'secret_key' field in this payload.
 		foreach ($accounts as &$account) {
 			$isSandboxEnabled = isset($account['has_sandbox']) && $account['has_sandbox'] === 'on';
 
@@ -497,7 +503,8 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 				$accountsData[] = [
 					'account_name' => $account['title'] ?? '',
 					'public_key'   => $account['live_public_key'],
-					'secret_key'   => $account['live_secret_key'],
+					'signature'    => hash_hmac('sha256', $timestamp . '.' . $account['live_public_key'], $account['live_secret_key']),
+					'timestamp'    => $timestamp,
 					'mode'         => 'live',
 				];
 				if (empty($first_public_key)) {
@@ -510,7 +517,8 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 				$accountsData[] = [
 					'account_name' => $account['title'] ?? '',
 					'public_key'   => $account['sandbox_public_key'],
-					'secret_key'   => $account['sandbox_secret_key'],
+					'signature'    => hash_hmac('sha256', $timestamp . '.' . $account['sandbox_public_key'], $account['sandbox_secret_key']),
+					'timestamp'    => $timestamp,
 					'mode'         => 'sandbox',
 				];
 				if (empty($first_public_key)) {
@@ -532,6 +540,12 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 		];
 		if (!empty($first_public_key)) {
 			$headers['Authorization'] = 'Bearer ' . sanitize_text_field($first_public_key);
+		}
+		// NFT-03: Sign the full request body with the first account's secret key.
+		//   X-Signature = HMAC-SHA256(secret_key, X-Timestamp . '.' . raw_body)
+		if (!empty($first_secret_key)) {
+			$headers['X-Timestamp'] = $timestamp;
+			$headers['X-Signature'] = hash_hmac('sha256', $timestamp . '.' . $request_body, $first_secret_key);
 		}
 
 		$url = esc_url($this->get_api_url('/sync-account-status'));
