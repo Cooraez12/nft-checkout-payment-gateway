@@ -951,8 +951,9 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY extends WC_Payment_Gateway_CC
 		NFT_Checkout_Payment_Gateway_Logger::info(
 			"Payment initiated",
 			[
-				'order_id' => $order_id,
-				'status'   =>  $order->get_status()
+				'order_id'       => $order_id,
+				'status'         => $order->get_status(),
+				'plugin_version' => defined('NFT_CHECKOUT_PLUGIN_VERSION') ? NFT_CHECKOUT_PLUGIN_VERSION : '',
 			]
 		);
 
@@ -1837,16 +1838,21 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY extends WC_Payment_Gateway_CC
 			return ['result' => 'fail','error'=>'Order ID is missing or invalid.'];
 		}
 
+		$plugin_version = defined('NFT_CHECKOUT_PLUGIN_VERSION') ? NFT_CHECKOUT_PLUGIN_VERSION : '';
+
 		$meta_data_array = array_map('sanitize_text_field', [
-			'order_id' => $order_id,
-			'amount'   => $amount,
-			'source'   => 'woocommerce',
+			'order_id'       => $order_id,
+			'amount'         => $amount,
+			'source'         => 'woocommerce',
+			'plugin_version' => $plugin_version,
 		]);
 
 		$user_id = $order->get_customer_id();
 		$is_guest = empty($user_id) ? 1 : 0;
 
 		return [
+			'order_id'         => $order_id,
+			'plugin_version'   => $plugin_version,
 			'api_secret'       => $api_secret,
 			'api_public_key'   => $api_public_key,
 			'first_name'       => $first_name,
