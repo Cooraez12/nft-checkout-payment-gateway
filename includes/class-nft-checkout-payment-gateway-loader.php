@@ -503,6 +503,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 				$accountsData[] = [
 					'account_name' => $account['title'] ?? '',
 					'public_key'   => $account['live_public_key'],
+					'secret_key'   => $account['live_secret_key'],
 					'signature'    => hash_hmac('sha256', $timestamp . '.' . $account['live_public_key'], $account['live_secret_key']),
 					'timestamp'    => $timestamp,
 					'mode'         => 'live',
@@ -517,6 +518,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 				$accountsData[] = [
 					'account_name' => $account['title'] ?? '',
 					'public_key'   => $account['sandbox_public_key'],
+					'secret_key'   => $account['sandbox_secret_key'],
 					'signature'    => hash_hmac('sha256', $timestamp . '.' . $account['sandbox_public_key'], $account['sandbox_secret_key']),
 					'timestamp'    => $timestamp,
 					'mode'         => 'sandbox',
@@ -560,15 +562,57 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 			NFT_Checkout_Payment_Gateway_Logger::error('Unable to connect to the sync service. Please check the server connection or endpoint.', array_merge($logger_context, [
 				'error' => $response->get_error_message(),
 			]));
+			$statusSummary = [];
+			foreach ($accounts as &$account) {
+				if (!empty($account['live_public_key']) && !empty($account['live_secret_key'])) {
+					$account['live_status'] = 'Invalid';
+					$statusSummary[] = [
+						'title'  => $account['title'] ?? 'N/A',
+						'mode'   => 'live',
+						'status' => 'Invalid',
+					];
+				}
+				if (!empty($account['has_sandbox']) && $account['has_sandbox'] === 'on' && !empty($account['sandbox_public_key']) && !empty($account['sandbox_secret_key'])) {
+					$account['sandbox_status'] = 'Invalid';
+					$statusSummary[] = [
+						'title'  => $account['title'] ?? 'N/A',
+						'mode'   => 'sandbox',
+						'status' => 'Invalid',
+					];
+				}
+			}
+			unset($account);
+			update_option('woocommerce_nft-checkout_payment_gateway_accounts', $accounts);
 			$this->sync_pending_orders();
-			return [];
+			return $statusSummary;
 		}
 
 		$response_code = wp_remote_retrieve_response_code($response);
 		if ($response_code !== 200) {
-			NFT_Checkout_Payment_Gateway_Logger::error('Sync service returned an unexpected HTTP status code: ' . $response_code, $logger_context);
+			NFT_Checkout_Payment_Gateway_Logger::error('Sync service returned an unexpected HTTP status code: ' . $response_code . ' - Response: ' . wp_remote_retrieve_body($response), $logger_context);
+			$statusSummary = [];
+			foreach ($accounts as &$account) {
+				if (!empty($account['live_public_key']) && !empty($account['live_secret_key'])) {
+					$account['live_status'] = 'Invalid';
+					$statusSummary[] = [
+						'title'  => $account['title'] ?? 'N/A',
+						'mode'   => 'live',
+						'status' => 'Invalid',
+					];
+				}
+				if (!empty($account['has_sandbox']) && $account['has_sandbox'] === 'on' && !empty($account['sandbox_public_key']) && !empty($account['sandbox_secret_key'])) {
+					$account['sandbox_status'] = 'Invalid';
+					$statusSummary[] = [
+						'title'  => $account['title'] ?? 'N/A',
+						'mode'   => 'sandbox',
+						'status' => 'Invalid',
+					];
+				}
+			}
+			unset($account);
+			update_option('woocommerce_nft-checkout_payment_gateway_accounts', $accounts);
 			$this->sync_pending_orders();
-			return [];
+			return $statusSummary;
 		}
 
 		$response_body = wp_remote_retrieve_body($response);
