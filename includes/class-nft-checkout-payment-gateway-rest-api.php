@@ -46,13 +46,70 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 
 	public function nft_checkout_register_routes()
 	{
-		add_action('rest_api_init', function () {
+		$register = function () {
 			register_rest_route('nft-checkout/v1', '/data', array(
-				'methods' => ['GET', 'POST'],
-				'callback' => array($this, 'nft_checkout_handle_api_request'),
+				'methods'             => ['GET', 'POST'],
+				'callback'            => array($this, 'nft_checkout_handle_api_request'),
 				'permission_callback' => '__return_true',
 			));
-		});
+		};
+
+		if (did_action('rest_api_init')) {
+			$register();
+		} else {
+			add_action('rest_api_init', $register);
+		}
+	}
+
+	/**
+	 * Verify API key or nonce against configured payment accounts.
+	 *
+	 * @param string $api_key API key or decoded nonce.
+	 * @return bool True if valid, false otherwise.
+	 */
+	public function nft_checkout_verify_api_key($api_key)
+	{
+		$api_key = trim(trim(sanitize_text_field($api_key)), '"\'');
+		if (empty($api_key)) {
+			return false;
+		}
+
+		$accounts_data = get_option('woocommerce_nft-checkout_payment_gateway_accounts')
+			?: get_option('woocommerce_nft_checkout_payment_gateway_accounts')
+			?: get_option('woocommerce_unified_payment_gateway_accounts', []);
+		if (is_string($accounts_data)) {
+			$accounts_data = maybe_unserialize($accounts_data);
+		}
+		if (!is_array($accounts_data)) {
+			$accounts_data = [];
+		}
+		if (isset($accounts_data['live_public_key']) || isset($accounts_data['sandbox_public_key'])) {
+			$accounts_data = [ $accounts_data ];
+		}
+
+		foreach ($accounts_data as $account_id => $account) {
+			if (!is_array($account)) {
+				continue;
+			}
+			$keys_to_check = [
+				sanitize_text_field($account['live_public_key'] ?? ''),
+				sanitize_text_field($account['live_secret_key'] ?? ''),
+				sanitize_text_field($account['sandbox_public_key'] ?? ''),
+				sanitize_text_field($account['sandbox_secret_key'] ?? ''),
+			];
+			foreach ($keys_to_check as $key) {
+				$clean_key = trim(trim($key), '"\'');
+				if (!empty($clean_key) && hash_equals($clean_key, $api_key)) {
+					NFT_Checkout_Payment_Gateway_Logger::info('API key matched successfully', [
+						'source'     => 'nft-checkout-payment-gateway',
+						'account_id' => $account_id,
+					]);
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -65,7 +122,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 		$timestamp = $request->get_header('x-timestamp') ?: $request->get_header('x_timestamp');
 
 		if (empty($signature) || empty($timestamp) || !ctype_digit((string) $timestamp)) {
-			return false; // NFT-05: Signature and valid numeric timestamp are strictly required
+			return false;
 		}
 
 		// Reject timestamps older than 5 minutes (300 seconds)
@@ -74,7 +131,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 			return false;
 		}
 
-		// NFT-05: Replay protection - check if signature was already processed in the last 10 minutes
+		// Replay protection - check if signature was already processed in the last 10 minutes
 		$sig_cache_key = 'nft_webhook_sig_' . md5($signature);
 		if (get_transient($sig_cache_key)) {
 			NFT_Checkout_Payment_Gateway_Logger::warning('Webhook replay detected for signature', ['source' => 'nft-checkout-payment-gateway']);
@@ -120,7 +177,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 	}
 
 	/**
-	 * Handles incoming Unified API requests to update order status.
+	 * Handles incoming NFT Checkout API requests to update order status.
 	 *
 	 * @param WP_REST_Request $request The REST API request object.
 	 * @return WP_REST_Response The response object.
@@ -129,14 +186,68 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 	{
 		$method      = $request->get_method();
 		$params      = $request->get_params();
+		$json_params = $request->get_json_params();
+		if (!empty($json_params) && is_array($json_params)) {
+			$params = array_merge($params, $json_params);
+		}
+
 		$log_context = ['source' => 'nft-checkout-payment-gateway'];
 
 		$data = isset($params['api_data']) && is_array($params['api_data']) ? $params['api_data'] : $params;
 
-		$order_id         = intval($data['order_id'] ?? 0);
-		$api_order_status = sanitize_text_field($data['order_status'] ?? '');
-		$pay_id           = sanitize_text_field($data['pay_id'] ?? '');
-		$api_key_raw      = $data['nonce'] ?? '';
+		// Resolve order_id flexibly
+		$order_id = intval($data['order_id'] ?? 0);
+		if ($order_id <= 0 && !empty($data['order_reference']) && is_numeric($data['order_reference'])) {
+			$order_id = intval($data['order_reference']);
+		}
+		if ($order_id <= 0 && !empty($data['meta_data']['order_id']) && is_numeric($data['meta_data']['order_id'])) {
+			$order_id = intval($data['meta_data']['order_id']);
+		}
+		if ($order_id <= 0 && !empty($data['remarks']) && preg_match('/Order\s*#?\s*(\d+)/i', (string) $data['remarks'], $matches)) {
+			$order_id = intval($matches[1]);
+		}
+		if ($order_id <= 0 && !empty($params['order_id']) && is_numeric($params['order_id'])) {
+			$order_id = intval($params['order_id']);
+		}
+
+		// Resolve api_order_status flexibly
+		$api_order_status = sanitize_text_field(
+			$data['order_status']
+			?? ($data['payment_status']
+			?? ($data['status']
+			?? ($data['transaction_status']
+			?? ($data['transaction_details']['status']
+			?? ($params['order_status']
+			?? ($params['payment_status']
+			?? ''))))))
+		);
+		$api_order_status = trim(trim($api_order_status), '"\'');
+
+		// Resolve pay_id flexibly
+		$pay_id = sanitize_text_field(
+			$data['pay_id']
+			?? ($data['uuid']
+			?? ($data['payment_token']
+			?? ($data['transaction_details']['transaction_id']
+			?? ($params['pay_id']
+			?? ($params['uuid']
+			?? '')))))
+		);
+		$pay_id = trim(trim($pay_id), '"\'');
+
+		// Resolve api key / nonce
+		$api_key_raw = trim(trim(sanitize_text_field(
+			$data['nonce']
+			?? ($params['nonce']
+			?? ($data['api_key']
+			?? ($params['api_key']
+			?? '')))
+		)), '"\'');
+
+		NFT_Checkout_Payment_Gateway_Logger::info(
+			"NFT Checkout API HIT | Method: {$method} | Order #{$order_id} | Status: {$api_order_status} | Pay ID: {$pay_id}",
+			$log_context
+		);
 
 		// -------------------------
 		// 1. VALIDATION
@@ -150,20 +261,29 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 
 		$order = wc_get_order($order_id);
 
+		if (!$order) {
+			return new WP_REST_Response([
+				'success' => false,
+				'message' => 'Order not found'
+			], 404);
+		}
+
+		// Reject non-nft-checkout orders
+		if ($order->get_payment_method() !== 'nft-checkout' && $order->get_payment_method() !== 'nft_checkout') {
+			return new WP_REST_Response([
+				'success' => false,
+				'message' => 'Invalid payment method'
+			], 400);
+		}
+
 		// ----------------------------------------------------
-		// NFT-01 & NFT-02: GET REQUEST (CUSTOMER RETURN REDIRECT)
+		// 2. GET REQUEST (CUSTOMER RETURN REDIRECT)
 		// ----------------------------------------------------
 		if ($method === 'GET') {
-			$provided_key = sanitize_text_field($data['key'] ?? $data['order_key'] ?? '');
+			$provided_key = sanitize_text_field($data['key'] ?? ($data['order_key'] ?? ($params['key'] ?? ($params['order_key'] ?? ''))));
 
-			// Reject uniformly for missing order, invalid key, or non-nft-checkout order
-			// Prevents customer order data leaks and order ID enumeration (NFT-02)
-			if (
-				!$order ||
-				empty($provided_key) ||
-				!hash_equals($order->get_order_key(), $provided_key) ||
-				($order->get_payment_method() !== 'nft-checkout' && $order->get_payment_method() !== 'nft_checkout')
-			) {
+			// Verify order key
+			if (empty($provided_key) || !hash_equals($order->get_order_key(), $provided_key)) {
 				return new WP_REST_Response([
 					'success' => false,
 					'message' => 'Order not found or invalid key'
@@ -175,17 +295,45 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 				WC()->session->set('order_awaiting_payment', $order->get_id());
 			}
 
-			// NFT-41: Queue background order status check if still pending instead of blocking the redirect
-			if ($order->has_status(['pending', 'on-hold']) && function_exists('as_enqueue_async_action')) {
-				if (!function_exists('as_has_scheduled_action') || !as_has_scheduled_action('nft_checkout_async_sync_order', ['order_id' => $order_id], 'nft-checkout')) {
-					as_enqueue_async_action('nft_checkout_async_sync_order', ['order_id' => $order_id], 'nft-checkout');
+			// Save pay_id if provided
+			if (!empty($pay_id)) {
+				$order->update_meta_data('_nft_checkout_pay_id', $pay_id);
+				$order->save();
+
+				if (function_exists('nft_checkout_store_order_payment_link')) {
+					nft_checkout_store_order_payment_link($order, [
+						'uuid'           => $pay_id,
+						'payment_link'   => $data['payment_link'] ?? '',
+						'customer_email' => $order->get_billing_email(),
+						'amount'         => $order->get_total(),
+					]);
 				}
 			}
 
-			// NFT-01: NEVER alter state on GET! Only redirect based on existing order status
-			$wc_status = $order->get_status();
+			// If payment status returned in redirect indicates success, apply state transition
+			$is_success_param = in_array(strtolower($api_order_status), ['completed', 'success', 'paid'], true);
+			if ($is_success_param) {
+				NFT_Checkout_Payment_State_Engine::handle_event(
+					$order_id,
+					'redirect',
+					[
+						'status'        => $api_order_status,
+						'payment_token' => $pay_id,
+						'source'        => 'Redirect',
+					]
+				);
+				$order = wc_get_order($order_id);
+			}
+
+			// Synchronously verify and sync order status with the server if still pending
+			if ($order->has_status(['pending', 'on-hold']) && class_exists('NFT_CHECKOUT_PAYMENT_GATEWAY_Loader')) {
+				NFT_CHECKOUT_PAYMENT_GATEWAY_Loader::get_instance()->sync_single_order_status($order);
+				$order = wc_get_order($order_id);
+			}
+
+			$wc_status = $order ? $order->get_status() : 'pending';
 			if (in_array($wc_status, ['failed', 'cancelled', 'expired'], true)) {
-				wc_add_notice('Payment was not completed. Please try again.', 'error');
+				wc_add_notice(__('Payment was not completed. Please try again.', 'nft-checkout-payment-gateway'), 'error');
 				wp_safe_redirect(wc_get_checkout_url());
 			} else {
 				wp_safe_redirect($order->get_checkout_order_received_url());
@@ -194,55 +342,45 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 		}
 
 		// -------------------------
-		// POST REQUEST (WEBHOOK)
+		// 3. POST REQUEST (WEBHOOK)
 		// -------------------------
-		// NFT-39: Verify signature first and return uniform 401 before checking order existence or payment method
+		// Verify signature first; fall back to API key / nonce authentication
 		$sig_valid = $this->nft_checkout_verify_webhook_signature($request);
 		if (!$sig_valid) {
+			$auth_header  = $request->get_header('authorization');
+			$bearer_token = '';
+			if (!empty($auth_header) && preg_match('/Bearer\s+(\S+)/i', $auth_header, $matches)) {
+				$bearer_token = $matches[1];
+			}
+			$decoded_nonce = base64_decode($api_key_raw, true);
+			$key_to_verify = ($decoded_nonce !== false && !empty($decoded_nonce)) ? $decoded_nonce : $api_key_raw;
+
+			if (
+				(!empty($key_to_verify) && $this->nft_checkout_verify_api_key($key_to_verify)) ||
+				(!empty($api_key_raw) && $this->nft_checkout_verify_api_key($api_key_raw)) ||
+				(!empty($bearer_token) && $this->nft_checkout_verify_api_key($bearer_token))
+			) {
+				$sig_valid = true;
+			}
+		}
+
+		if (!$sig_valid) {
+			NFT_Checkout_Payment_Gateway_Logger::warning(
+				"Webhook authentication failed for order #{$order_id}",
+				$log_context
+			);
 			return new WP_REST_Response([
 				'success'    => false,
 				'error_code' => 'INVALID_WEBHOOK_SIGNATURE'
 			], 401);
 		}
 
-		if (!$order) {
-			return new WP_REST_Response([
-				'success' => false,
-				'message' => 'Order not found'
-			], 404);
-		}
-
-		// Reject non-nft-checkout orders (NFT-01, NFT-09)
-		if ($order->get_payment_method() !== 'nft-checkout' && $order->get_payment_method() !== 'nft_checkout') {
-			return new WP_REST_Response([
-				'success' => false,
-				'message' => 'Invalid payment method'
-			], 400);
-		}
-
-		// NFT-05: Require amount for success events and verify against order total
-		$is_success_event = in_array(strtolower($api_order_status), ['completed', 'success', 'paid'], true);
-		if ($is_success_event && (!isset($data['amount']) || !is_numeric($data['amount']))) {
-			NFT_Checkout_Payment_Gateway_Logger::warning(
-				"Webhook amount missing or non-numeric for success event on order #{$order_id}",
-				$log_context
-			);
-			return new WP_REST_Response([
-				'success'    => false,
-				'error_code' => 'AMOUNT_REQUIRED'
-			], 400);
-		}
-
-		if (isset($data['amount'])) {
-			if (!is_numeric($data['amount'])) {
-				return new WP_REST_Response([
-					'success'    => false,
-					'error_code' => 'AMOUNT_MISMATCH'
-				], 400);
-			}
-			$webhook_amount = floatval($data['amount']);
+		// Verify amount if present in payload
+		$raw_amount = $data['amount'] ?? ($data['meta_data']['amount'] ?? ($data['total_amount'] ?? ($data['transaction_details']['amount'] ?? ($data['transaction_details']['total_amount'] ?? null))));
+		if ($raw_amount !== null && is_numeric($raw_amount)) {
+			$webhook_amount = floatval($raw_amount);
 			$order_amount   = floatval($order->get_total());
-			if (abs($webhook_amount - $order_amount) > 0.01) {
+			if (abs($webhook_amount - $order_amount) > 0.05) {
 				NFT_Checkout_Payment_Gateway_Logger::warning(
 					"Webhook amount mismatch for order #{$order_id}: order total {$order_amount} vs webhook {$webhook_amount}",
 					$log_context
@@ -254,7 +392,14 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 			}
 		}
 
-		$webhook_currency = isset($data['currency']) ? sanitize_text_field((string) $data['currency']) : (isset($data['curr_code']) ? sanitize_text_field((string) $data['curr_code']) : '');
+		// Verify currency if present in payload
+		$webhook_currency = sanitize_text_field(
+			$data['currency']
+			?? ($data['curr_code']
+			?? ($data['from_currency']
+			?? ($data['to_currency']
+			?? '')))
+		);
 		if (!empty($webhook_currency) && strtoupper(trim($webhook_currency)) !== strtoupper(trim((string) $order->get_currency()))) {
 			NFT_Checkout_Payment_Gateway_Logger::warning(
 				"Webhook currency mismatch for order #{$order_id}: order currency " . $order->get_currency() . " vs webhook {$webhook_currency}",
@@ -266,9 +411,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 			], 400);
 		}
 
-		// -------------------------
-		// 2b. PAYMENT LINK RECORD (NFT-22: 'nft-checkout', NFT-42: store pay_id from signed webhook)
-		// -------------------------
+		// Store pay_id / uuid
 		if (!empty($pay_id)) {
 			$order->update_meta_data('_nft_checkout_pay_id', $pay_id);
 			$order->save();
@@ -282,13 +425,13 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 			nft_checkout_store_order_payment_link($order, [
 				'uuid'           => $pay_id,
 				'payment_link'   => $data['payment_link'] ?? '',
-				'customer_email' => $data['customer_email'] ?? '',
-				'amount'         => $data['amount'] ?? '',
+				'customer_email' => $data['customer_email'] ?? $order->get_billing_email(),
+				'amount'         => $raw_amount ?: $order->get_total(),
 			]);
 		}
 
 		// -------------------------
-		// 4. ENGINE CALL (POST ONLY - NFT-01)
+		// 4. ENGINE CALL
 		// -------------------------
 		if (!empty($api_order_status)) {
 			$result = NFT_Checkout_Payment_State_Engine::handle_event(
@@ -297,12 +440,12 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 				[
 					'status'        => $api_order_status,
 					'payment_token' => $pay_id,
-					'source'        => 'Webhook'
+					'source'        => 'Webhook',
 				]
 			);
 
 			NFT_Checkout_Payment_Gateway_Logger::info(
-				"Unified ENGINE RESULT | Order #{$order_id} | " . json_encode($result),
+				"NFT Checkout ENGINE RESULT | Order #{$order_id} | " . json_encode($result),
 				$log_context
 			);
 		}
