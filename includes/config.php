@@ -20,7 +20,7 @@ if (!defined('NFT_CHECKOUT_QA_HOST')) {
 }
 
 if (!defined('NFT_CHECKOUT_PROD_HOST')) {
-    define('NFT_CHECKOUT_PROD_HOST', 'qa.rt.app');
+    define('NFT_CHECKOUT_PROD_HOST', 'rt.app');
 }
 
 /**
@@ -30,7 +30,7 @@ if (!defined('NFT_CHECKOUT_PROD_HOST')) {
  * 'production' => rt.app     (Live)
  */
 if (!defined('NFT_CHECKOUT_ENVIRONMENT')) {
-    define('NFT_CHECKOUT_ENVIRONMENT', 'production');
+    define('NFT_CHECKOUT_ENVIRONMENT', 'qa');
 }
 
 // Resolve target host based on NFT_CHECKOUT_ENVIRONMENT

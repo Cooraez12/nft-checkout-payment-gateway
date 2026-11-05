@@ -62,7 +62,7 @@ class NFT_Checkout_Payment_State_Engine
              * NFT-09: Allow success only from pending, failed or processing
              */
             if ($new_state === 'success') {
-                if (in_array($current_state, ['pending', 'failed', 'processing'], true)) {
+                if (in_array($current_state, ['pending', 'failed', 'processing', 'on-hold', 'checkout-draft'], true)) {
                     $can_transition = true;
                 } else {
                     $can_transition = false;
@@ -189,7 +189,7 @@ class NFT_Checkout_Payment_State_Engine
 
         $last_lock = $order->get_meta('_nft_checkout_state_lock');
 
-        if ($last_lock === $state_lock_key) {
+        if ($last_lock === $state_lock_key && !($state === 'success' && $order->has_status(['pending', 'on-hold', 'failed']))) {
             return;
         }
 
@@ -204,7 +204,14 @@ class NFT_Checkout_Payment_State_Engine
         };
 
         if ($wc_status) {
-            $order->update_status($wc_status, '');
+            if ($state === 'success') {
+                $order->payment_complete($payment_token);
+                if ($wc_status && $order->get_status() !== $wc_status) {
+                    $order->update_status($wc_status, '');
+                }
+            } else {
+                $order->update_status($wc_status, '');
+            }
         }
 
         $order->update_meta_data('_nft_checkout_state', $state);
@@ -461,7 +468,9 @@ class NFT_Checkout_Payment_State_Engine
         if ($from === $to) return true;
 
         $map = [
-            'pending'    => ['pending', 'cancelled', 'processing', 'success', 'failed'],
+            'pending'        => ['pending', 'cancelled', 'processing', 'success', 'failed', 'on-hold'],
+            'on-hold'        => ['pending', 'cancelled', 'processing', 'success', 'failed', 'on-hold'],
+            'checkout-draft' => ['pending', 'cancelled', 'processing', 'success', 'failed', 'on-hold'],
             'processing' => ['processing', 'success', 'failed', 'cancelled'],
             'failed'     => ['failed', 'success', 'processing', 'cancelled', 'pending'],
             'cancelled'  => ['cancelled', 'failed', 'processing', 'success', 'pending'],
