@@ -31,8 +31,8 @@ class NFT_CHECKOUT_Blocks_Gateway extends AbstractPaymentMethodType {
 	}
 
 	public function get_payment_method_data() {
-         $title       = $this->settings['title'] ?? 'NFT Checkout';
-        $description = $this->settings['description'] ?? '';
+         $title       = $this->settings['title'] ?? 'Pay by card';
+        $description = $this->settings['description'] ?? 'Pay securely by card. Your payment is processed by RT.';
 
 		if (WC()->cart) {
 			$amount   = (float) WC()->cart->get_total('edit');

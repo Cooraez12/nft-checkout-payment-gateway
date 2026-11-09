@@ -9,8 +9,8 @@
     const settings =
         window.wc?.wcSettings?.getPaymentMethodData?.('nft-checkout') || {};
 
-    const label = settings.title || 'NFT Checkout';
-    const description = settings.description || '';
+    const label = settings.title || 'Pay by card';
+    const description = settings.description || 'Pay securely by card. Your payment is processed by RT.';
 
     const methodConfig = {
         name: settings.id || 'nft-checkout',

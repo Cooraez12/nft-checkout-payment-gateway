@@ -4,7 +4,7 @@ Tags: woocommerce, payment gateway, fiat, RT.app
 Requires at least: 6.2
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 1.0.1
+Stable tag: 1.0.2
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -28,6 +28,9 @@ Visit the DFin website and log in to your account. Navigate to Developer Setting
 
 == Changelog ==
 
+= 1.0.2 =
+* Checkout wording: shoppers now see plain card-payment text ("Pay by card") instead of voucher/NFT wording. No payment changes.
+
 = 1.0.1 =
 * Security: the account status sync no longer sends secret keys to the API; accounts are identified by public key and the request is HMAC-signed.
 * Security: all API requests are always sent over HTTPS, regardless of the store's own protocol.
@@ -38,6 +41,9 @@ Visit the DFin website and log in to your account. Navigate to Developer Setting
 * Initial release.
 
 == Upgrade Notice ==
+
+= 1.0.2 =
+Customer-facing checkout wording update. No payment changes.
 
 = 1.0.1 =
 Security release: signed account sync and HTTPS-only API traffic. All stores should update.
