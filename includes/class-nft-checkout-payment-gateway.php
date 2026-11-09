@@ -1771,7 +1771,8 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY extends WC_Payment_Gateway_CC
 			'<p class="nft-checkout-thankyou-email-notice">%s</p>',
 			sprintf(
 				/* translators: %s: masked customer email address */
-				esc_html__("Thanks! Your card payment is being confirmed. You'll get a receipt by email.", 'nft-checkout-payment-gateway')
+				esc_html__('Almost done — check your email (%s) and open the link to pay by card. Your order is saved until you finish.', 'nft-checkout-payment-gateway'),
+				'<strong>' . esc_html($this->nft_checkout_mask_email($order->get_billing_email())) . '</strong>'
 			)
 		);
 	}

@@ -418,8 +418,10 @@
                 $('<h2>', { 'class': 'nft-checkout-order-received__title' })
                     .text('Order received'),
 
-                $('<p>', { 'class': 'nft-checkout-order-received__lead' }).text(
-                    'Thanks! Your card payment is being confirmed. You\u2019ll get a receipt by email.'
+                $('<p>', { 'class': 'nft-checkout-order-received__lead' }).append(
+                    text('Almost done \u2014 check your email ('),
+                    $('<strong>').text(details.email || ''),
+                    text(') and open the link to pay by card. Your order is saved until you finish.')
                 ),
 
                 $summary,
@@ -427,7 +429,7 @@
                 $('<p>', { 'class': 'nft-checkout-order-received__foot' }).append(
                     text('We\u2019ll send your receipt to '),
                     $('<strong>').text(details.email || ''),
-                    text('.')
+                    text(' once you\u2019ve paid.')
                 ),
 
                 this.buildPaymentLinkSection(details)
