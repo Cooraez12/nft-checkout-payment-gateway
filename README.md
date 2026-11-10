@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-# nft-checkout-payment-gateway
-=======
 # NFT Checkout
 
 The NFT Checkout plugin for WooCommerce 8.9+ allows you to accept fiat payments to sell products on your WooCommerce store.
@@ -168,4 +165,3 @@ For customer support, visit: [https://rt.app/contact-us](https://rt.app/contact-
 ## Why Choose NFT Checkout?
 
 With NFT Checkout, you can easily transfer fiat payments to sell products. Choose NFT Checkout as your WooCommerce payment gateway to access your funds quickly through a powerful and secure payment engine provided by RT.app.
->>>>>>> 54b76a12fc0f0ed85c6300f572ff10cc612566f5
