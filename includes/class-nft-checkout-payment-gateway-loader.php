@@ -366,8 +366,8 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 
 			$raw_settings = get_option('woocommerce_nft-checkout_settings') ?: get_option('woocommerce_unified_settings', []);
 			$settings     = [
-				'title'       => $raw_settings['title'] ?? 'NFT Checkout',
-				'description' => $raw_settings['description'] ?? '',
+				'title'       => $raw_settings['title'] ?? 'Pay by card',
+				'description' => $raw_settings['description'] ?? 'Pay securely by card. Your payment is processed by RT.',
 				'enabled'     => $raw_settings['enabled'] ?? 'no',
 			];
 

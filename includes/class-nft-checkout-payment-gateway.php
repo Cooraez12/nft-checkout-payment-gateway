@@ -675,7 +675,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY extends WC_Payment_Gateway_CC
 				'title'       => __('Title', 'nft-checkout-payment-gateway'),
 				'type'        => 'text',
 				'description' => __('This controls the title which the user sees during checkout.', 'nft-checkout-payment-gateway'),
-				'default'     => __('NFT Checkout', 'nft-checkout-payment-gateway'),
+				'default'     => __('Pay by card', 'nft-checkout-payment-gateway'),
 				'desc_tip'    => true,
 			],
 
@@ -683,7 +683,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY extends WC_Payment_Gateway_CC
 				'title'       => __('Description', 'nft-checkout-payment-gateway'),
 				'type'        => 'textarea',
 				'description' => __('Provide a brief description of the payment option.', 'nft-checkout-payment-gateway'),
-				'default'     => __('Purchase and pay quickly with NFT Checkout', 'nft-checkout-payment-gateway'),
+				'default'     => __('Pay securely by card. Your payment is processed by RT.', 'nft-checkout-payment-gateway'),
 				'desc_tip'    => true,
 			],
 
@@ -1368,7 +1368,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY extends WC_Payment_Gateway_CC
 					]
 				);
 
-				$last_message = __('We could not reach the voucher service. Please try again in a moment.', 'nft-checkout-payment-gateway');
+				$last_message = __('We could not reach the payment service. Please try again in a moment.', 'nft-checkout-payment-gateway');
 				continue;
 			}
 
@@ -1449,7 +1449,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY extends WC_Payment_Gateway_CC
 
 		return [
 			'success' => false,
-			'message' => $last_message ?: __('We could not email your voucher. Please try again in a moment.', 'nft-checkout-payment-gateway'),
+			'message' => $last_message ?: __('We could not start your payment. Please try again in a moment.', 'nft-checkout-payment-gateway'),
 			'data'    => [],
 		];
 	}
@@ -1771,7 +1771,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY extends WC_Payment_Gateway_CC
 			'<p class="nft-checkout-thankyou-email-notice">%s</p>',
 			sprintf(
 				/* translators: %s: masked customer email address */
-				esc_html__('We have emailed your voucher to %s. Purchase the voucher to complete this order.', 'nft-checkout-payment-gateway'),
+				esc_html__('Almost done — check your email (%s) and open the link to pay by card. Your order is saved until you finish.', 'nft-checkout-payment-gateway'),
 				'<strong>' . esc_html($this->nft_checkout_mask_email($order->get_billing_email())) . '</strong>'
 			)
 		);

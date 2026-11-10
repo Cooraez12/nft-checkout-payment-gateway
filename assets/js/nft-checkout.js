@@ -393,7 +393,7 @@
             // The reference the voucher email prints under the amount. Skipped
             // when it is just the order number again, which is the row above.
             if (details.reference && String(details.reference) !== String(details.order_number || '')) {
-                $summary.append(row('Voucher reference', details.reference));
+                $summary.append(row('Reference', details.reference));
             }
 
             (details.items || []).forEach(function (item) {
@@ -418,37 +418,18 @@
                 $('<h2>', { 'class': 'nft-checkout-order-received__title' })
                     .text('Order received'),
 
-                // What the voucher service said, shown as it came back.
-                details.message
-                    ? $('<p>', { 'class': 'nft-checkout-order-received__status' }).text(details.message)
-                    : '',
-
-                $('<p>', { 'class': 'nft-checkout-order-received__lead' }).text(
-                    'As part of our secure checkout process, next you’ll receive your digital redemption voucher along with an NFT confirmation. This voucher can be used to redeem your order. You’ll get an email shortly, on your own time, to purchase the voucher and complete this transaction.'
+                $('<p>', { 'class': 'nft-checkout-order-received__lead' }).append(
+                    text('Almost done \u2014 check your email ('),
+                    $('<strong>').text(details.email || ''),
+                    text(') and open the link to pay by card. Your order is saved until you finish.')
                 ),
 
                 $summary,
 
-                $('<div>', { 'class': 'nft-checkout-order-received__note' }).append(
-                    $('<div>', {
-                        'class': 'nft-checkout-order-received__note-icon',
-                        'aria-hidden': 'true'
-                    }).html(SHIELD_ICON),
-                    $('<div>').append(
-                        $('<p>', { 'class': 'nft-checkout-order-received__note-title' })
-                            .text('Independent voucher & payment partner'),
-                        $('<p>').append(
-                            text('Your voucher and payment are completed through a separate, independent partner. That partner is never hosted on, embedded in, or otherwise associated with '),
-                            $('<span>').text(siteName),
-                            text('.')
-                        )
-                    )
-                ),
-
                 $('<p>', { 'class': 'nft-checkout-order-received__foot' }).append(
-                    text('No further action is needed here — check the inbox for '),
+                    text('We\u2019ll send your receipt to '),
                     $('<strong>').text(details.email || ''),
-                    text(' whenever you’re ready.')
+                    text(' once you\u2019ve paid.')
                 ),
 
                 this.buildPaymentLinkSection(details)

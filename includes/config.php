@@ -77,5 +77,5 @@ if (!defined('NFT_CHECKOUT_API_BASE_URL')) {
 }
 
 if (!defined('NFT_CHECKOUT_PLUGIN_VERSION')) {
-    define('NFT_CHECKOUT_PLUGIN_VERSION', '1.0.1');
+    define('NFT_CHECKOUT_PLUGIN_VERSION', '1.0.2');
 }
