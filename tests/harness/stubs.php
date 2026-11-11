@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { exit; } // Test code: never runs over the web.
 /**
  * Minimal WordPress / WooCommerce stubs for exercising the NFT Checkout
  * plugin's payment paths without WordPress, a database or a network.

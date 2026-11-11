@@ -221,7 +221,7 @@ add_action('admin_notices', function () {
 		return;
 	}
 	echo '<div class="notice notice-warning"><p><strong>' .
-		esc_html__('NFT Checkout: sandbox mode is enabled.', 'nft-checkout-payment-gateway') . '</strong> ' .
-		esc_html__('Customers can place orders that are "paid" with sandbox test payments; no real funds are received. Turn sandbox mode off before taking real orders.', 'nft-checkout-payment-gateway') .
+		esc_html__('NFT Checkout: test mode is on.', 'nft-checkout-payment-gateway') . '</strong> ' .
+		esc_html__('Card orders are test orders and no real money is received. Turn test mode off in the NFT Checkout settings before taking real orders.', 'nft-checkout-payment-gateway') .
 		'</p></div>';
 });

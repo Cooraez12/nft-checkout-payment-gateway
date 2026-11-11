@@ -58,7 +58,7 @@ class NFT_CHECKOUT_Blocks_Gateway extends AbstractPaymentMethodType {
 
 	public function get_payment_method_data() {
 		$title       = $this->settings['title'] ?? __('Pay by card', 'nft-checkout-payment-gateway');
-		$description = $this->settings['description'] ?? __('Pay securely by card. Your payment is processed by RT.', 'nft-checkout-payment-gateway');
+		$description = $this->settings['description'] ?? __('Pay securely by card. After you place the order, we email you a secure link from RT to pay.', 'nft-checkout-payment-gateway');
 
 		if (WC()->cart) {
 			$amount   = (float) WC()->cart->get_total('edit');
@@ -86,7 +86,7 @@ class NFT_CHECKOUT_Blocks_Gateway extends AbstractPaymentMethodType {
 			'show_consent_checkbox' => ($this->settings['show_consent_checkbox'] ?? 'no') === 'yes',
 			'consent_label'         => __('I consent to the collection of my data to process this payment', 'nft-checkout-payment-gateway'),
 			'consent_nonce'         => wp_create_nonce('nft_checkout_payment'),
-			'email_notice'          => __('After you place the order we e-mail you a secure link to pay by card. Your order is saved until you finish.', 'nft-checkout-payment-gateway'),
+			'email_notice'          => __('After you place the order, we email you a secure link to pay by card. Your order is saved until you pay.', 'nft-checkout-payment-gateway'),
 		];
 	}
 }
