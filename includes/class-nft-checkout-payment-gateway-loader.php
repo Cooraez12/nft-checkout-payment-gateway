@@ -459,7 +459,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 		}
 
 		if ($sync_orders) {
-			$this->sync_pending_orders();
+			$this->sync_pending_orders(20, true);
 		}
 
 		return $statusSummary;
@@ -472,7 +472,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 	 * @param bool $allow_voucher_lookup Whether to resolve unrecorded voucher links via /voucher/redeem/.
 	 * @return array Summary of synced order statuses.
 	 */
-	public function sync_pending_orders($limit = 20, $allow_voucher_lookup = false)
+	public function sync_pending_orders($limit = 20, $allow_voucher_lookup = true)
 	{
 		if (!function_exists('wc_get_orders')) {
 			return [];
@@ -527,7 +527,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 	 * @param bool         $allow_voucher_lookup Whether to query RT /voucher/redeem/{uuid} to resolve missing pay_id.
 	 * @return string|null Resolved state ('success', 'refunded', 'failed', 'cancelled', 'expired', 'processing') or null.
 	 */
-	public function sync_single_order_status($order, $allow_voucher_lookup = false)
+	public function sync_single_order_status($order, $allow_voucher_lookup = true)
 	{
 		if (is_numeric($order)) {
 			$order = wc_get_order(absint($order));
@@ -635,8 +635,9 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 				'order_id'      => (string) $order_id,
 				'payment_token' => $pay_id,
 				'is_sandbox'    => $is_sandbox ? 1 : 0,
+				'api_secret'    => $secret_key,
 			]),
-			'timeout'     => 8,
+			'timeout'     => 15,
 			'redirection' => 0,
 			'sslverify'   => true,
 		]);
@@ -671,7 +672,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 			$status_url  = $this->get_api_url('/payment-requests/public/' . rawurlencode($expected_uuid) . '/status');
 			$status_resp = wp_remote_get(esc_url_raw($status_url), [
 				'headers'     => ['Accept' => 'application/json'],
-				'timeout'     => 8,
+				'timeout'     => 15,
 				'redirection' => 0,
 				'sslverify'   => true,
 			]);
@@ -712,7 +713,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 				return null;
 			}
 
-			if (!isset($status_data['is_sandbox']) || (bool) $status_data['is_sandbox'] !== (bool) $is_sandbox) {
+			if (isset($status_data['is_sandbox']) && (bool) $status_data['is_sandbox'] !== (bool) $is_sandbox) {
 				NFT_Checkout_Payment_Gateway_Logger::warning(
 					"API sync sandbox/live mode mismatch for order #{$order_id}.",
 					['source' => 'nft-checkout-payment-gateway']
@@ -907,7 +908,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 						'Accept'       => 'application/json',
 					],
 					'body'        => wp_json_encode(['signature' => $signature]),
-					'timeout'     => 8,
+					'timeout'     => 15,
 					'redirection' => 0,
 					'sslverify'   => true,
 				]);

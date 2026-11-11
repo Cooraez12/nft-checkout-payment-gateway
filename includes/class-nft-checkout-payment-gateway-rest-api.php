@@ -203,21 +203,12 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 				WC()->session->set('order_awaiting_payment', $order->get_id());
 			}
 
-			// Confirm current status synchronously from authenticated server API only when order already has a server-recorded pay_id
-			if ($order->has_status(['pending', 'on-hold'])) {
-				$known_pay_id = sanitize_text_field((string) $order->get_meta('_nft_checkout_pay_id'));
-				if ($known_pay_id === '' && function_exists('nft_checkout_get_order_payment_link')) {
-					$link_row = nft_checkout_get_order_payment_link($order_id);
-					if (!empty($link_row->uuid)) {
-						$known_pay_id = sanitize_text_field((string) $link_row->uuid);
-					}
-				}
-				if ($known_pay_id !== '' && class_exists('NFT_CHECKOUT_PAYMENT_GATEWAY_Loader')) {
-					NFT_CHECKOUT_PAYMENT_GATEWAY_Loader::get_instance()->sync_single_order_status($order);
-					$reloaded = wc_get_order($order_id);
-					if ($reloaded instanceof WC_Order) {
-						$order = $reloaded;
-					}
+			// Confirm current status synchronously from authenticated server API
+			if ($order->has_status(['pending', 'on-hold']) && class_exists('NFT_CHECKOUT_PAYMENT_GATEWAY_Loader')) {
+				NFT_CHECKOUT_PAYMENT_GATEWAY_Loader::get_instance()->sync_single_order_status($order, true);
+				$reloaded = wc_get_order($order_id);
+				if ($reloaded instanceof WC_Order) {
+					$order = $reloaded;
 				}
 			}
 
