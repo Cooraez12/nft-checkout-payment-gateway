@@ -14,7 +14,7 @@ Accept card payments in WooCommerce through RT's hosted checkout: the customer r
 
 == Description ==
 
-NFT Checkout adds a "Pay by card" option to your WooCommerce checkout. When the customer places the order, RT e-mails them a secure payment link; they open it and pay by card on RT's hosted page (rt.app). The order stays pending until RT confirms the payment, then moves to Processing (or Completed, as configured).
+NFT Checkout adds a "Pay by card" option to your WooCommerce checkout. When the customer places the order, RT e-mails them a secure payment link; they open it and pay by card on RT's hosted page (app.rt.app). The order stays pending until RT confirms the payment, then moves to Processing (or Completed, as configured).
 
 Supports the classic and block checkouts, WooCommerce High-Performance Order Storage, multiple RT merchant accounts with priority routing, and a sandbox mode for testing.
 
@@ -22,16 +22,16 @@ You need an RT merchant account to use this plugin. Get your API keys from your 
 
 == External Services ==
 
-This plugin connects to RT's payment service, operated by RT.app at https://rt.app, to send payment vouchers, check payment status and keep your merchant account status in sync. Nothing is sent until you have saved your API keys in the plugin settings.
+This plugin connects to RT's payment service, operated by RT.app at https://app.rt.app, to send payment vouchers, check payment status and keep your merchant account status in sync. Nothing is sent until you have saved your API keys in the plugin settings.
 
 What is sent, and when:
 
-* `https://rt.app/payment-api/voucher/send` - when a customer places an order with this gateway. Sends the order number, order total and currency, the ordered items (names, quantities, line totals and product image URLs), the customer's name, e-mail address, phone number and billing address, the customer's IP address, the WooCommerce customer ID (0 for guests), the return URL of your shop, your account's public API key and the plugin version. The request is signed with your secret API key; the secret itself is not sent.
-* `https://rt.app/payment-api/dailylimit` and `https://rt.app/payment-api/check-merchant-status` - when the checkout page is shown and when an order is placed, to check that your account is active and the order total is within its daily limit. Sends the amount and your public API key, signed with the secret key.
-* `https://rt.app/payment-api/update-txn-status` - when the customer returns from RT's payment page or opens the order-received page, when you run "Check NFT Checkout payment status" on an order, in the background when you open a pending order in the admin, and every two hours for orders still awaiting payment. Sends the order number, the payment ID (when known) and your public API key, signed with the secret key.
-* `https://rt.app/payment-api/cancel-order-link` - when an unpaid order is cancelled or fails in WooCommerce. Sends the order number and payment ID, signed with the secret key.
-* `https://rt.app/payment-api/sync-account-status` - every two hours and when you save the settings or press "Sync Accounts", to check that your API keys are valid. Sends each account's public key with a signature made with its secret key.
-* `https://rt.app/payment-api/plugin/check/plugin` - only if you enable "Share plugin status with RT" in the settings (off by default): when the plugin is activated, deactivated, its settings are saved, and after each account sync. Sends your account titles and public keys, your shop's domain name, and the plugin, WordPress and WooCommerce versions.
+* `https://app.rt.app/payment-api/voucher/send` - when a customer places an order with this gateway. Sends the order number, order total and currency, the ordered items (names, quantities, line totals and product image URLs), the customer's name, e-mail address, phone number and billing address, the customer's IP address, the WooCommerce customer ID (0 for guests), the return URL of your shop, your account's public API key and the plugin version. The request is signed with your secret API key; the secret itself is not sent.
+* `https://app.rt.app/payment-api/dailylimit` and `https://app.rt.app/payment-api/check-merchant-status` - when the checkout page is shown and when an order is placed, to check that your account is active and the order total is within its daily limit. Sends the amount and your public API key, signed with the secret key.
+* `https://app.rt.app/payment-api/update-txn-status` - when the customer returns from RT's payment page or opens the order-received page, when you run "Check NFT Checkout payment status" on an order, in the background when you open a pending order in the admin, and every two hours for orders still awaiting payment. Sends the order number, the payment ID (when known) and your public API key, signed with the secret key.
+* `https://app.rt.app/payment-api/cancel-order-link` - when an unpaid order is cancelled or fails in WooCommerce. Sends the order number and payment ID, signed with the secret key.
+* `https://app.rt.app/payment-api/sync-account-status` - every two hours and when you save the settings or press "Sync Accounts", to check that your API keys are valid. Sends each account's public key with a signature made with its secret key.
+* `https://app.rt.app/payment-api/plugin/check/plugin` - only if you enable "Share plugin status with RT" in the settings (off by default): when the plugin is activated, deactivated, its settings are saved, and after each account sync. Sends your account titles and public keys, your shop's domain name, and the plugin, WordPress and WooCommerce versions.
 
 RT sends payment status updates back to your shop at `/wp-json/nft-checkout/v1/data`, signed with your secret API key. Updates without a valid signature are rejected.
 
@@ -64,7 +64,7 @@ Yes. Enable sandbox mode and enter your sandbox keys. Test orders are marked as 
 
 = Can I point a staging site at RT's QA service? =
 
-Add `define('NFT_CHECKOUT_HOST', 'qa.rt.app');` to that site's `wp-config.php`. Without it every site talks to the production service.
+Return the test address from the `rt_payment_api_base` filter, for example `https://dev.rt.app/payment-api`, or define `NFT_CHECKOUT_API_BASE_URL` in that site's `wp-config.php`. Without it every site talks to the production service at `https://app.rt.app/payment-api`, for both sandbox and live keys.
 
 == Changelog ==
 

@@ -748,7 +748,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY extends WC_Payment_Gateway_CC
 	public function nft_checkout_get_form_fields() {
 		$dev_instructions_link = sprintf(
 			'<strong><a class="nft-checkout-instructions-url" href="%s" target="_blank" rel="noopener noreferrer">%s</a></strong><br>',
-			esc_url($this->base_url . '/developers'),
+			esc_url($this->base_url . '/developer'),
 			esc_html__('Open the Developers page in RT', 'nft-checkout-payment-gateway')
 		);
 

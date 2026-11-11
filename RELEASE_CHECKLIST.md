@@ -18,9 +18,9 @@ Any change to the items below needs an explicit sign-off; a merge must never sil
 ## includes/config.php
 
 - [ ] `NFT_CHECKOUT_PROTOCOL` is the literal `'https://'`. It must not use `is_ssl()` or any other store-dependent value.
-- [ ] The default host is production: with nothing defined in `wp-config.php`, `NFT_CHECKOUT_HOST` is `rt.app` (NFT-04). Only `NFT_CHECKOUT_HOST` / `NFT_CHECKOUT_ENVIRONMENT` in `wp-config.php` may change it, and `NFT_CHECKOUT_HOST` wins.
+- [ ] The default host is production: with nothing defined in `wp-config.php` and no `rt_payment_api_base` filter, `NFT_CHECKOUT_API_BASE_URL` is `https://app.rt.app/payment-api` (NFT-04). Sandbox and Live use the same address. Only `NFT_CHECKOUT_HOST` / `NFT_CHECKOUT_ENVIRONMENT` in `wp-config.php` may change it, and `NFT_CHECKOUT_HOST` wins.
 - [ ] `NFT_CHECKOUT_BASE_URL` strips any scheme from an overridden host and prefixes `https://`.
-- [ ] `NFT_CHECKOUT_API_BASE_URL` is `NFT_CHECKOUT_BASE_URL . '/payment-api'`, and every API call carries the `/payment-api` prefix.
+- [ ] `NFT_CHECKOUT_API_BASE_URL` is the single setting; `NFT_CHECKOUT_BASE_URL` is derived from it. A value that is not on rt.app falls back to production, and every API call carries the `/payment-api` prefix.
 - [ ] `NFT_CHECKOUT_PLUGIN_VERSION` matches the plugin header `Version:` and the `Stable tag` in `readme.txt` / `README.md`, and is higher than the version stores already run.
 
 ## Webhook and return link (`includes/class-nft-checkout-payment-gateway-rest-api.php`)
