@@ -7,7 +7,7 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
  * Where this plugin talks to RT. ONE setting decides it: NFT_CHECKOUT_API_BASE_URL.
  *
  * Production (the default, for Live AND Sandbox keys) is
- * https://rt.app/payment-api. Sandbox mode does not use a different
+ * https://app.rt.app/payment-api. Sandbox mode does not use a different
  * address: the same service answers both, and the keys plus the is_sandbox
  * flag in each request decide the mode.
  *
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
  * customers' details can never be sent anywhere else by a filter.
  */
 if (!defined('NFT_CHECKOUT_DEFAULT_API_BASE_URL')) {
-	define('NFT_CHECKOUT_DEFAULT_API_BASE_URL', 'https://rt.app/payment-api');
+	define('NFT_CHECKOUT_DEFAULT_API_BASE_URL', 'https://app.rt.app/payment-api');
 }
 
 if (!function_exists('nft_checkout_clean_api_base')) {
@@ -93,7 +93,7 @@ if (!defined('NFT_CHECKOUT_BASE_URL')) {
 }
 
 if (!defined('NFT_CHECKOUT_PLUGIN_VERSION')) {
-    define('NFT_CHECKOUT_PLUGIN_VERSION', '1.0.2');
+    define('NFT_CHECKOUT_PLUGIN_VERSION', '1.0.3');
 }
 
 /* Gateway id. Orders placed before 1.0.2 may carry the underscore spelling. */
