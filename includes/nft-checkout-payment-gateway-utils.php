@@ -13,7 +13,7 @@ function nft_checkout_check_system_requirements()
 	if (version_compare(phpversion(), NFT_CHECKOUT_PAYMENT_GATEWAY_MIN_PHP_VER, '<')) {
 		return sprintf(
 			// translators: %1$s is the minimum required PHP version, %2$s is the current PHP version
-			__('The NFT Checkout plugin requires PHP version %1$s or greater. You are running %2$s.', 'nft-checkout-payment-gateway'),
+			__('NFT Checkout needs PHP version %1$s or newer. This site runs %2$s. Ask your web host to update PHP.', 'nft-checkout-payment-gateway'),
 			NFT_CHECKOUT_PAYMENT_GATEWAY_MIN_PHP_VER,
 			phpversion()
 		);
@@ -27,9 +27,9 @@ function nft_checkout_check_system_requirements()
 	if (!$wc_db_version || version_compare($wc_db_version, NFT_CHECKOUT_PAYMENT_GATEWAY_MIN_WC_VER, '<')) {
 		return sprintf(
 			// translators: %1$s is the minimum required WooCommerce database version, %2$s is the current WooCommerce database version (or "undefined" if not available)
-			__('The NFT Checkout plugin requires WooCommerce database version %1$s or greater. You are running %2$s.', 'nft-checkout-payment-gateway'),
+			__('NFT Checkout needs WooCommerce database version %1$s or newer. This site has %2$s. Update WooCommerce and run its database update.', 'nft-checkout-payment-gateway'),
 			NFT_CHECKOUT_PAYMENT_GATEWAY_MIN_WC_VER,
-			$wc_db_version ? $wc_db_version : __('undefined', 'nft-checkout-payment-gateway')
+			$wc_db_version ? $wc_db_version : __('an unknown version', 'nft-checkout-payment-gateway')
 		);
 	}
 
@@ -37,9 +37,9 @@ function nft_checkout_check_system_requirements()
 	if (!$wc_plugin_version || version_compare($wc_plugin_version, NFT_CHECKOUT_PAYMENT_GATEWAY_MIN_WC_VER, '<')) {
 		return sprintf(
 			// translators: %1$s is the minimum required WooCommerce plugin version, %2$s is the current WooCommerce plugin version (or "undefined" if not available)
-			__('The NFT Checkout plugin requires WooCommerce plugin version %1$s or greater. You are running %2$s.', 'nft-checkout-payment-gateway'),
+			__('NFT Checkout needs WooCommerce version %1$s or newer. This site has %2$s. Update WooCommerce.', 'nft-checkout-payment-gateway'),
 			NFT_CHECKOUT_PAYMENT_GATEWAY_MIN_WC_VER,
-			$wc_plugin_version ? $wc_plugin_version : __('undefined', 'nft-checkout-payment-gateway')
+			$wc_plugin_version ? $wc_plugin_version : __('an unknown version', 'nft-checkout-payment-gateway')
 		);
 	}
 
@@ -275,6 +275,70 @@ function nft_checkout_is_configured()
  * REQUEST SIGNING (NFT-05)
  * ========================================================================= */
 
+/* =========================================================================
+ * ACCOUNT STATUS WORDING
+ * ========================================================================= */
+
+/**
+ * Plain words for each account status, for the settings screen.
+ *
+ * @return array status => [label, help]
+ */
+function nft_checkout_account_status_texts()
+{
+	return [
+		'active'        => [
+			__('Connected', 'nft-checkout-payment-gateway'),
+			__('RT accepted these keys. Shoppers can pay by card.', 'nft-checkout-payment-gateway'),
+		],
+		'pending'       => [
+			__('Waiting for RT approval', 'nft-checkout-payment-gateway'),
+			__('RT has your keys but your account is not approved yet. Shoppers cannot pay by card until it is. Check your RT account for anything left to finish.', 'nft-checkout-payment-gateway'),
+		],
+		'inactive'      => [
+			__('Not active', 'nft-checkout-payment-gateway'),
+			__('This account cannot take payments right now. Check your RT account, or add keys for this mode.', 'nft-checkout-payment-gateway'),
+		],
+		'invalid'       => [
+			__('Keys not accepted', 'nft-checkout-payment-gateway'),
+			__('RT did not accept these keys. Check that the publishable and secret keys are from the same RT account and the same mode (Sandbox or Live).', 'nft-checkout-payment-gateway'),
+		],
+		'not_connected' => [
+			__('Could not connect', 'nft-checkout-payment-gateway'),
+			__('We could not reach RT to check these keys. Press "Check with RT" to try again.', 'nft-checkout-payment-gateway'),
+		],
+		'unknown'       => [
+			__('Not checked yet', 'nft-checkout-payment-gateway'),
+			__('These keys have not been checked with RT yet. Save your changes, then press "Check with RT".', 'nft-checkout-payment-gateway'),
+		],
+	];
+}
+
+/**
+ * What to show for one account's status in the current mode.
+ *
+ * @param string $status     Stored status word.
+ * @param bool   $is_sandbox Whether test mode is on.
+ * @return array ['class' => string, 'label' => string, 'help' => string]
+ */
+function nft_checkout_account_status_view($status, $is_sandbox)
+{
+	$texts  = nft_checkout_account_status_texts();
+	$status = strtolower(trim((string) $status));
+	if (!isset($texts[$status])) {
+		$status = 'unknown';
+	}
+	$mode = $is_sandbox
+		? __('Sandbox', 'nft-checkout-payment-gateway')
+		: __('Live', 'nft-checkout-payment-gateway');
+
+	return [
+		'class' => str_replace('_', '-', $status),
+		'label' => $mode . ': ' . $texts[$status][0],
+		'help'  => $texts[$status][1],
+	];
+}
+
 /**
  * Headers for a call to the RT payment API: the public key as bearer and an
  * HMAC-SHA256 signature of "<timestamp>.<raw body>" made with the secret key.
@@ -370,6 +434,200 @@ function nft_checkout_pay_ids_match($a, $b)
 	return false;
 }
 
+/**
+ * A plain sentence for an order note about what RT says of a payment.
+ *
+ * @param string $state Engine state word.
+ * @return string
+ */
+function nft_checkout_plain_status_sentence($state)
+{
+	switch (strtolower((string) $state)) {
+		case 'success':
+			return __('Checked with RT: the customer has paid.', 'nft-checkout-payment-gateway');
+		case 'processing':
+			return __('Checked with RT: the payment is being processed. No action is needed yet.', 'nft-checkout-payment-gateway');
+		case 'failed':
+			return __('Checked with RT: the payment did not go through. No money was received.', 'nft-checkout-payment-gateway');
+		case 'cancelled':
+			return __('Checked with RT: the customer cancelled the payment. No money was received.', 'nft-checkout-payment-gateway');
+		case 'expired':
+			return __('Checked with RT: the payment link closed before the customer paid. No money was received.', 'nft-checkout-payment-gateway');
+		default:
+			return __('Checked with RT: the customer has not paid yet.', 'nft-checkout-payment-gateway');
+	}
+}
+
+/* =========================================================================
+ * PAYMENT EMAILS SENT FOR AN ORDER (NFT-01)
+ * ========================================================================= */
+
+/**
+ * Every payment email (voucher) this shop asked RT to send for the order.
+ *
+ * @param WC_Order $order
+ * @return array[] Each: reference, voucher_id, public_key, time.
+ */
+function nft_checkout_order_vouchers($order)
+{
+	if (!$order instanceof WC_Order) {
+		return [];
+	}
+	$history = $order->get_meta('_nft_checkout_voucher_history');
+	$history = is_array($history) ? array_values(array_filter($history, 'is_array')) : [];
+
+	// Orders placed before the history existed still carry their last voucher.
+	$last_reference = (string) $order->get_meta('_nft_checkout_voucher_reference');
+	$last_id        = (string) $order->get_meta('_nft_checkout_voucher_id');
+	if ($last_reference !== '' || $last_id !== '') {
+		$seen = false;
+		foreach ($history as $entry) {
+			if (
+				($last_reference !== '' && (string) ($entry['reference'] ?? '') === $last_reference) ||
+				($last_id !== '' && (string) ($entry['voucher_id'] ?? '') === $last_id)
+			) {
+				$seen = true;
+				break;
+			}
+		}
+		if (!$seen) {
+			$history[] = ['reference' => $last_reference, 'voucher_id' => $last_id, 'public_key' => '', 'time' => 0];
+		}
+	}
+	return $history;
+}
+
+/**
+ * Remember a payment email that was just sent for the order, and note that
+ * the order is now waiting to learn that email's payment id.
+ *
+ * @param WC_Order $order
+ * @param string   $reference
+ * @param string   $voucher_id
+ * @param string   $public_key
+ */
+function nft_checkout_remember_voucher($order, $reference, $voucher_id, $public_key)
+{
+	if (!$order instanceof WC_Order) {
+		return;
+	}
+	$reference  = sanitize_text_field((string) $reference);
+	$voucher_id = sanitize_text_field((string) $voucher_id);
+	if ($reference === '' && $voucher_id === '') {
+		return;
+	}
+
+	$history = $order->get_meta('_nft_checkout_voucher_history');
+	$history = is_array($history) ? array_values(array_filter($history, 'is_array')) : [];
+	foreach ($history as $entry) {
+		if (
+			(string) ($entry['reference'] ?? '') === $reference &&
+			(string) ($entry['voucher_id'] ?? '') === $voucher_id
+		) {
+			// RT handed back the same open voucher: nothing new to wait for.
+			return;
+		}
+	}
+	$history[] = [
+		'reference'  => $reference,
+		'voucher_id' => $voucher_id,
+		'public_key' => sanitize_text_field((string) $public_key),
+		'time'       => time(),
+	];
+	$order->update_meta_data('_nft_checkout_voucher_history', array_slice($history, -20));
+	$order->update_meta_data('_nft_checkout_voucher_awaiting_pay_id', $reference !== '' ? $reference : $voucher_id);
+}
+
+/**
+ * Whether an authenticated message may introduce a payment id this order
+ * has not seen yet.
+ *
+ * RT creates the payment link (and its id) only when the shopper opens the
+ * payment email, so the shop cannot know the id in advance. When a first
+ * payment fails and the shopper pays again, the shop sends a new email and
+ * the payment that follows carries a new id. That id is accepted when:
+ *
+ *  - the order is not paid yet (a paid order is never paid twice),
+ *  - the order really did send a payment email, and
+ *  - a voucher reference or id in the message, if RT includes one, is one
+ *    this order was issued.
+ *
+ * The caller has already authenticated the source (signature made with the
+ * order's own account secret, or the answer to this shop's signed lookup),
+ * and the amount, currency, order number and mode are still checked exactly.
+ *
+ * @param WC_Order $order
+ * @param array    $data  The message.
+ * @return bool
+ */
+function nft_checkout_may_learn_new_pay_id($order, array $data)
+{
+	if (!$order instanceof WC_Order || $order->is_paid()) {
+		return false;
+	}
+	$vouchers = nft_checkout_order_vouchers($order);
+	if (empty($vouchers)) {
+		return false;
+	}
+
+	$named = [];
+	foreach (['reference', 'voucher_reference', 'voucher_id'] as $field) {
+		if (isset($data[$field]) && is_scalar($data[$field]) && trim((string) $data[$field]) !== '') {
+			$named[] = trim((string) $data[$field]);
+		}
+	}
+	if (empty($named)) {
+		return true;
+	}
+	foreach ($vouchers as $voucher) {
+		foreach ($named as $value) {
+			if (
+				((string) ($voucher['reference'] ?? '') !== '' && hash_equals((string) $voucher['reference'], $value)) ||
+				((string) ($voucher['voucher_id'] ?? '') !== '' && hash_equals((string) $voucher['voucher_id'], $value))
+			) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+/**
+ * Whether a "failed", "cancelled" or "expired" report is about an older
+ * payment link than the one the shopper is now using.
+ *
+ * Each "pay again" sends a new payment email with a new link. News that an
+ * older link closed says nothing about the current one, so it must not fail
+ * the order.
+ *
+ * @param WC_Order $order
+ * @param string   $pay_id   The payment id the report is about.
+ * @param string[] $known_ids
+ * @return bool
+ */
+function nft_checkout_is_superseded_pay_id($order, $pay_id, array $known_ids)
+{
+	if (!$order instanceof WC_Order || trim((string) $pay_id) === '') {
+		return false;
+	}
+	$known = false;
+	foreach ($known_ids as $known_id) {
+		if (nft_checkout_pay_ids_match($known_id, $pay_id)) {
+			$known = true;
+			break;
+		}
+	}
+	if (!$known) {
+		return false;
+	}
+	// A newer payment email has been sent and its payment id is not known yet.
+	if ((string) $order->get_meta('_nft_checkout_voucher_awaiting_pay_id') !== '') {
+		return true;
+	}
+	$latest = (string) $order->get_meta('_nft_checkout_latest_pay_id');
+	return $latest !== '' && !nft_checkout_pay_ids_match($latest, $pay_id);
+}
+
 /* =========================================================================
  * PAYMENT CLAIM VALIDATION (NFT-02 / NFT-03)
  * ========================================================================= */
@@ -405,9 +663,15 @@ function nft_checkout_format_amount($amount)
  * @param string[] $known_ids       Every payment id the order was issued.
  * @param bool     $allow_first_id  Accept $pay_id when the order has none yet.
  * @param int|null $account_mode    1 sandbox / 0 live, of the order's account.
+ * @param bool     $allow_new_id    Accept a payment id the order has not seen
+ *                                  yet. Only passed as true by an authenticated
+ *                                  source (RT's signed message, or RT's answer
+ *                                  to this shop's own signed lookup) for an
+ *                                  order that sent the shopper a new payment
+ *                                  email: see nft_checkout_may_learn_new_pay_id().
  * @return true|WP_Error
  */
-function nft_checkout_verify_payment_claim($order, array $data, $pay_id, array $known_ids, $allow_first_id = false, $account_mode = null)
+function nft_checkout_verify_payment_claim($order, array $data, $pay_id, array $known_ids, $allow_first_id = false, $account_mode = null, $allow_new_id = false)
 {
 	if (!$order instanceof WC_Order) {
 		return new WP_Error('nft_checkout_no_order', 'Order not found.');
@@ -425,7 +689,7 @@ function nft_checkout_verify_payment_claim($order, array $data, $pay_id, array $
 			break;
 		}
 	}
-	if (!$id_matches && !(empty($known_ids) && $allow_first_id)) {
+	if (!$id_matches && !(empty($known_ids) && $allow_first_id) && !$allow_new_id) {
 		return new WP_Error('nft_checkout_pay_id_mismatch', 'Payment ID mismatch.');
 	}
 

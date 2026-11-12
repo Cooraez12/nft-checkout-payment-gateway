@@ -1,4 +1,5 @@
 <?php
+if (PHP_SAPI !== 'cli') { exit; } // Test code: never runs over the web.
 /**
  * php -n test_nft.php <plugin dir>
  *
@@ -200,7 +201,11 @@ $loader->sync_single_order_status($order);
 check('T10j sync: order without an account is never confirmed', $order->get_status() === 'pending' && count($GLOBALS['http_log']) === 0);
 
 echo "== NFT-04: default host\n";
-check('T11 default host is production rt.app', NFT_CHECKOUT_HOST === 'rt.app' && NFT_CHECKOUT_BASE_URL === 'https://rt.app');
+check('T11 default API base is production app.rt.app', NFT_CHECKOUT_API_BASE_URL === 'https://app.rt.app/payment-api' && NFT_CHECKOUT_BASE_URL === 'https://app.rt.app');
+check('T11b API base: dev address accepted', nft_checkout_clean_api_base('https://dev.rt.app/payment-api/') === 'https://dev.rt.app/payment-api');
+check('T11c API base: http is forced to https', nft_checkout_clean_api_base('http://dev.rt.app/payment-api') === 'https://dev.rt.app/payment-api');
+check('T11d API base: a host outside rt.app falls back to production', nft_checkout_clean_api_base('https://evil.example/payment-api') === 'https://app.rt.app/payment-api' && nft_checkout_clean_api_base('https://rt.app.evil.example') === 'https://app.rt.app/payment-api' && nft_checkout_clean_api_base('https://notrt.app/x') === 'https://app.rt.app/payment-api');
+check('T11e API base: empty falls back to production', nft_checkout_clean_api_base('') === 'https://app.rt.app/payment-api');
 
 echo "== NFT-05: account sync sends no secret\n";
 reset_world(); $GLOBALS['http'] = function ($u, $a) { if (str_contains($u, 'sync-account-status')) $GLOBALS['sync_req'] = $a; return ['response' => ['code' => 200], 'body' => json_encode(['data' => [['mode' => 'live', 'public_key' => PUB_LIVE, 'status' => 'active']]])]; };
@@ -211,6 +216,67 @@ check('T12b telemetry not sent without consent', count(array_filter($GLOBALS['ht
 
 echo "== pay id helpers\n";
 check('pay ids match across base64/plain spellings', nft_checkout_pay_ids_match(UUID, base64_encode(UUID)) && nft_checkout_pay_ids_match(rtrim(base64_encode(UUID), '='), UUID) && !nft_checkout_pay_ids_match(UUID, '11111111-2222-4333-8444-555555555555'));
+
+echo "== Retry payment (review NFT-01): fail on link A, pay on link B\n";
+const UUID_B = '7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f';
+$issue_voucher = function ($order, $reference, $voucher_id) {
+	// What the gateway records when RT confirms a payment email was sent.
+	$order->update_meta_data('_nft_checkout_voucher_reference', $reference);
+	$order->update_meta_data('_nft_checkout_voucher_id', $voucher_id);
+	nft_checkout_remember_voucher($order, $reference, $voucher_id, PUB_LIVE);
+	$order->update_meta_data('_nft_checkout_state', 'pending');
+	if ($order->get_status() !== 'pending') { $order->update_status('pending'); }
+};
+$send = function (array $over) use ($good) { $raw = json_encode(array_merge($good, $over)); return webhook([], signed_headers($raw, SEC_LIVE), $raw); };
+
+$order = reset_world();
+$issue_voucher($order, '123-1', 'v_1');
+[$code] = $send(['order_status' => 'failed', 'payment_status' => 'failed']);
+check('R1 first payment fails on link A -> order failed, A remembered', $code === 200 && $order->get_status() === 'failed' && nft_checkout_pay_ids_match($order->get_meta('_nft_checkout_pay_id'), UUID), "http $code status=" . $order->get_status());
+$issue_voucher($order, '123-2', 'v_2');
+[$code, $data] = $send(['pay_id' => base64_encode(UUID_B), 'sent_at' => 'b']);
+check('R2 shopper pays on new link B -> order processing + paid', $code === 200 && $order->get_status() === 'processing' && $order->is_paid(), "http $code " . ($data['message'] ?? ''));
+check('R2 link B is now the newest known payment', nft_checkout_pay_ids_match($order->get_meta('_nft_checkout_latest_pay_id'), UUID_B) && $order->get_meta('_nft_checkout_voucher_awaiting_pay_id') === '');
+
+$order = reset_world();
+$issue_voucher($order, '123-1', 'v_1');
+$send(['order_status' => 'failed', 'payment_status' => 'failed']);
+$issue_voucher($order, '123-2', 'v_2');
+[$code, $data] = $send(['order_status' => 'expired', 'payment_status' => 'expired', 'sent_at' => 'late']);
+check('R3 old link A expires after a new email was sent -> order stays pending', $code === 200 && $order->get_status() === 'pending' && ($data['engine_reason'] ?? '') === 'superseded_link_ignored', "http $code status=" . $order->get_status());
+[$code] = $send(['pay_id' => base64_encode(UUID_B), 'amount' => '1.00']);
+check('R4 new link with the wrong amount is still refused', $code === 400 && !$order->is_paid(), "http $code");
+[$code] = $send(['pay_id' => base64_encode(UUID_B), 'reference' => '999-1']);
+check('R4b new link naming a voucher this order never sent is refused', $code === 400 && !$order->is_paid(), "http $code");
+$rawb = json_encode(array_merge($good, ['pay_id' => base64_encode(UUID_B)]));
+[$code] = webhook([], signed_headers($rawb, SEC_OTHER), $rawb);
+check('R4c new link signed by another account is refused', $code === 401 && !$order->is_paid(), "http $code");
+[$code] = $send(['pay_id' => base64_encode(UUID_B), 'reference' => '123-2', 'sent_at' => 'ok']);
+check('R5 new link naming this order\'s voucher is accepted', $code === 200 && $order->is_paid(), "http $code");
+$mails_before = count($GLOBALS['mails']);
+[$code, $data] = $send(['sent_at' => 'second']);
+check('R6 old link A paid as well (known id) -> order unchanged, still paid once', $code === 200 && $order->get_status() === 'processing', ($data['engine_reason'] ?? ''));
+
+$order = reset_world();
+$issue_voucher($order, '123-1', 'v_1');
+$send([]);
+const UUID_C = '9d8c7b6a-5f4e-4d3c-8b2a-1f0e9d8c7b6a';
+[$code, $data] = $send(['pay_id' => base64_encode(UUID_C), 'sent_at' => 'dup']);
+check('R7 second payment under an unknown id on a paid order -> 200, note + email, paid once', $code === 200 && ($data['engine_reason'] ?? '') === 'duplicate_payment_flagged' && $order->get_status() === 'processing' && count($GLOBALS['mails']) === 1, "http $code mails=" . count($GLOBALS['mails']));
+
+echo "== Retry payment: status lookup asks about the newest payment\n";
+$order = reset_world(); $GLOBALS["http"] = $sync_http;
+$issue_voucher($order, '123-1', 'v_1');
+$override = ['payment_status' => 'failed', 'transaction_status' => 'failed', 'settled' => false];
+$loader->sync_single_order_status($order);
+check('R8 lookup learns link A and its failure', $order->get_status() === 'failed' && nft_checkout_pay_ids_match($order->get_meta('_nft_checkout_pay_id'), UUID));
+$issue_voucher($order, '123-2', 'v_2');
+$loader->sync_single_order_status($order);
+check('R8b lookup right after the new email names no old id', !str_contains($GLOBALS['last_req']['body'], 'payment_token'), $GLOBALS['last_req']['body']);
+check('R8c RT still answering about failed link A does not fail the order again', $order->get_status() === 'pending', 'status=' . $order->get_status());
+$override = ['pay_id' => base64_encode(UUID_B)];
+$state = $loader->sync_single_order_status($order);
+check('R9 lookup finds link B paid -> processing + paid', $state === 'success' && $order->is_paid() && $order->get_status() === 'processing', 'state=' . var_export($state, true));
 
 $failed = array_filter($results, fn($r) => !$r[1]);
 echo "\n" . count($results) . " checks, " . count($failed) . " failed\n";

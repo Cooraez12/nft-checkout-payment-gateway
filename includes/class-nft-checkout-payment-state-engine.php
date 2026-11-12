@@ -267,12 +267,12 @@ class NFT_Checkout_Payment_State_Engine
             return;
         }
 
-        $detail = $return_code !== '' ? sprintf(' (%s)', $return_code) : '';
+        /* translators: %s: reference code for the reversal */
+        $detail = $return_code !== '' ? sprintf(__(' (reference %s)', 'nft-checkout-payment-gateway'), $return_code) : '';
         $note   = sprintf(
-            /* translators: 1: return code in parentheses or empty, 2: payment id */
-            __('RT reports that the payment%1$s for payment ID %2$s was returned or reversed after it had been received. The order status was NOT changed. Review the order before fulfilling or shipping it.', 'nft-checkout-payment-gateway'),
-            $detail,
-            $token
+            /* translators: %1$s: bank or card reference in parentheses, or empty */
+            __('This card payment was reversed after it had been received%1$s. The money is no longer in your RT account. The order was not changed: check it before shipping.', 'nft-checkout-payment-gateway'),
+            $detail
         );
         if ($reason !== '') {
             $note .= ' ' . $reason;

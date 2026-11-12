@@ -3,66 +3,93 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 // config.php
 
-// NFT-04: Always talk to the payment API over HTTPS.
-// The store's own scheme (is_ssl()) must never decide the protocol: an HTTP-only store
-// would otherwise send API keys and customer data in plain text. Do NOT change to is_ssl().
-if (!defined('NFT_CHECKOUT_PROTOCOL')) {
-    define('NFT_CHECKOUT_PROTOCOL', 'https://');
-}
-
 /*
- * NFT-04: a store talks to the production service unless its wp-config.php
- * says otherwise. Two overrides, in order of precedence:
+ * Where this plugin talks to RT. ONE setting decides it: NFT_CHECKOUT_API_BASE_URL.
  *
- *   define('NFT_CHECKOUT_HOST', 'qa.rt.app');          // an explicit host always wins
- *   define('NFT_CHECKOUT_ENVIRONMENT', 'qa');          // 'dev' | 'qa' | 'production'
+ * Production (the default, for Live AND Sandbox keys) is
+ * https://app.rt.app/payment-api. Sandbox mode does not use a different
+ * address: the same service answers both, and the keys plus the is_sandbox
+ * flag in each request decide the mode.
  *
- * Nothing else - not WP_ENVIRONMENT_TYPE, not a default in this file - may
- * point a store at a non-production host: a merchant's live keys and their
- * customers' data must never reach qa.rt.app by accident.
+ * A test shop can point at another RT environment without editing code:
+ *
+ *   add_filter('rt_payment_api_base', function () { return 'https://dev.rt.app/payment-api'; });
+ *
+ * (in a must-use plugin, so it runs before this file), or by defining
+ * NFT_CHECKOUT_API_BASE_URL in wp-config.php. The older wp-config
+ * settings NFT_CHECKOUT_HOST (a bare host) and NFT_CHECKOUT_ENVIRONMENT
+ * ('dev' | 'qa' | 'production') are still honoured.
+ * The address is always HTTPS and must be on rt.app, so a shop's keys and its
+ * customers' details can never be sent anywhere else by a filter.
  */
-if (!defined('NFT_CHECKOUT_DEV_HOST')) {
-    define('NFT_CHECKOUT_DEV_HOST', 'dev.rt.app');
+if (!defined('NFT_CHECKOUT_DEFAULT_API_BASE_URL')) {
+	define('NFT_CHECKOUT_DEFAULT_API_BASE_URL', 'https://app.rt.app/payment-api');
 }
 
-if (!defined('NFT_CHECKOUT_QA_HOST')) {
-    define('NFT_CHECKOUT_QA_HOST', 'qa.rt.app');
+if (!function_exists('nft_checkout_clean_api_base')) {
+	/**
+	 * A safe API base: https, a host on rt.app, no trailing slash. Anything
+	 * else falls back to production.
+	 *
+	 * @param mixed $candidate
+	 * @return string
+	 */
+	function nft_checkout_clean_api_base($candidate)
+	{
+		$candidate = is_string($candidate) ? trim($candidate) : '';
+		if ($candidate === '') {
+			return NFT_CHECKOUT_DEFAULT_API_BASE_URL;
+		}
+		if (!preg_match('#^[a-z][a-z0-9+.-]*://#i', $candidate)) {
+			$candidate = 'https://' . $candidate;
+		}
+		$parts = function_exists('wp_parse_url') ? wp_parse_url($candidate) : parse_url($candidate);
+		$host  = is_array($parts) && !empty($parts['host']) ? strtolower((string) $parts['host']) : '';
+		if ($host === '' || !($host === 'rt.app' || substr($host, -7) === '.rt.app')) {
+			return NFT_CHECKOUT_DEFAULT_API_BASE_URL;
+		}
+		$path = isset($parts['path']) ? rtrim((string) $parts['path'], '/') : '';
+		if ($path === '') {
+			$path = '/payment-api';
+		}
+		return 'https://' . $host . (!empty($parts['port']) ? ':' . (int) $parts['port'] : '') . $path;
+	}
 }
 
-if (!defined('NFT_CHECKOUT_PROD_HOST')) {
-    define('NFT_CHECKOUT_PROD_HOST', 'rt.app');
-}
-
-if (!defined('NFT_CHECKOUT_HOST')) {
-    $nft_checkout_active_env = defined('NFT_CHECKOUT_ENVIRONMENT') ? strtolower((string) NFT_CHECKOUT_ENVIRONMENT) : 'production';
-
-    switch ($nft_checkout_active_env) {
-        case 'dev':
-        case 'development':
-        case 'local':
-            $nft_checkout_target_host = NFT_CHECKOUT_DEV_HOST;
-            break;
-        case 'qa':
-        case 'staging':
-            $nft_checkout_target_host = NFT_CHECKOUT_QA_HOST;
-            break;
-        default:
-            $nft_checkout_target_host = NFT_CHECKOUT_PROD_HOST;
-            break;
-    }
-
-    define('NFT_CHECKOUT_HOST', $nft_checkout_target_host);
-}
-
-if (!defined('NFT_CHECKOUT_BASE_URL')) {
-    // Accept an overridden host with or without a scheme / trailing slash, but always force HTTPS.
-    $nft_checkout_parsed_host = preg_replace('#^[a-z][a-z0-9+.-]*://#i', '', (string) NFT_CHECKOUT_HOST);
-    $nft_checkout_parsed_host = rtrim($nft_checkout_parsed_host, '/');
-    define('NFT_CHECKOUT_BASE_URL', NFT_CHECKOUT_PROTOCOL . $nft_checkout_parsed_host);
+if (!defined('NFT_CHECKOUT_PROTOCOL')) {
+	define('NFT_CHECKOUT_PROTOCOL', 'https://');
 }
 
 if (!defined('NFT_CHECKOUT_API_BASE_URL')) {
-    define('NFT_CHECKOUT_API_BASE_URL', NFT_CHECKOUT_BASE_URL . '/payment-api');
+	$nft_checkout_api_base = NFT_CHECKOUT_DEFAULT_API_BASE_URL;
+
+	// Older wp-config settings. An explicit host wins over an environment name.
+	if (defined('NFT_CHECKOUT_HOST') && is_string(NFT_CHECKOUT_HOST) && trim(NFT_CHECKOUT_HOST) !== '') {
+		$nft_checkout_api_base = 'https://' . preg_replace('#^[a-z][a-z0-9+.-]*://#i', '', rtrim(trim(NFT_CHECKOUT_HOST), '/')) . '/payment-api';
+	} elseif (defined('NFT_CHECKOUT_ENVIRONMENT')) {
+		switch (strtolower((string) NFT_CHECKOUT_ENVIRONMENT)) {
+			case 'dev':
+			case 'development':
+			case 'local':
+				$nft_checkout_api_base = 'https://dev.rt.app/payment-api';
+				break;
+			case 'qa':
+			case 'staging':
+				$nft_checkout_api_base = 'https://qa.rt.app/payment-api';
+				break;
+		}
+	}
+
+	define('NFT_CHECKOUT_API_BASE_URL', nft_checkout_clean_api_base(apply_filters('rt_payment_api_base', $nft_checkout_api_base, 'nft-checkout-payment-gateway')));
+}
+
+/* Derived from the API base; never set separately. Used for links to RT pages
+ * (Developers) and to recognise RT's own origin. */
+if (!defined('NFT_CHECKOUT_HOST')) {
+	define('NFT_CHECKOUT_HOST', (string) parse_url(NFT_CHECKOUT_API_BASE_URL, PHP_URL_HOST));
+}
+if (!defined('NFT_CHECKOUT_BASE_URL')) {
+	define('NFT_CHECKOUT_BASE_URL', NFT_CHECKOUT_PROTOCOL . (string) parse_url(NFT_CHECKOUT_API_BASE_URL, PHP_URL_HOST));
 }
 
 if (!defined('NFT_CHECKOUT_PLUGIN_VERSION')) {

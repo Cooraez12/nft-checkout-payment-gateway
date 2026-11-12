@@ -146,6 +146,41 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 	 * @param WP_REST_Request $request The REST API request object.
 	 * @return WP_REST_Response The response object.
 	 */
+	/**
+	 * NFT-02: write one note and send one email the first time RT reports a
+	 * second completed payment for an order that is already paid.
+	 *
+	 * @param WC_Order $order
+	 * @param string   $pay_id
+	 */
+	private function nft_checkout_flag_second_payment($order, $pay_id)
+	{
+		$flagged = $order->get_meta('_nft_checkout_duplicate_payments');
+		$flagged = is_array($flagged) ? array_values(array_filter($flagged, 'is_string')) : [];
+		if (in_array($pay_id, $flagged, true)) {
+			return;
+		}
+		$flagged[] = $pay_id;
+		$order->update_meta_data('_nft_checkout_duplicate_payments', $flagged);
+
+		$note = __('The customer has paid for this order twice. The order was not changed. Refund the extra payment in your RT account.', 'nft-checkout-payment-gateway');
+		$order->add_order_note($note);
+		$order->save();
+
+		$recipient = get_option('admin_email');
+		if (is_string($recipient) && is_email($recipient)) {
+			wp_mail(
+				$recipient,
+				sprintf(
+					/* translators: %s: order number */
+					__('Order #%s was paid twice', 'nft-checkout-payment-gateway'),
+					$order->get_order_number()
+				),
+				$note . "\n\n" . admin_url('admin.php?page=wc-orders&action=edit&id=' . $order->get_id())
+			);
+		}
+	}
+
 	public function nft_checkout_handle_api_request(WP_REST_Request $request)
 	{
 		$method      = strtoupper((string) $request->get_method());
@@ -197,7 +232,9 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 
 			$wc_status = $order ? $order->get_status() : 'pending';
 			if (in_array($wc_status, ['failed', 'cancelled'], true)) {
-				wc_add_notice(__('Payment was not completed. Please try again.', 'nft-checkout-payment-gateway'), 'error');
+				if (function_exists('wc_add_notice') && function_exists('WC') && WC() && WC()->session) {
+					wc_add_notice(__('Your card payment was not completed, so you have not been charged. Please try again or choose another payment method.', 'nft-checkout-payment-gateway'), 'error');
+				}
 				wp_safe_redirect(wc_get_checkout_url());
 			} else {
 				wp_safe_redirect($order->get_checkout_order_received_url());
@@ -297,7 +334,47 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 		// The voucher's payment link is created when the customer opens their
 		// e-mail, so the first payment id an order learns may arrive with this
 		// (signed) webhook. After that only the ids the order was issued count.
-		$claim = nft_checkout_verify_payment_claim($order, $data, $pay_id, $known_ids, true, $account ? (int) $account['is_sandbox'] : null);
+		// NFT-01: when a first payment failed and the shopper was sent a new
+		// payment email, the payment that follows carries a new id. This
+		// message is signed with the order's own account secret, so it may
+		// introduce that id (see nft_checkout_may_learn_new_pay_id()).
+		$id_is_known = false;
+		foreach ($known_ids as $known_id) {
+			if (nft_checkout_pay_ids_match($known_id, $pay_id)) {
+				$id_is_known = true;
+				break;
+			}
+		}
+
+		// NFT-02: a second payment for an order that is already paid. The order
+		// is never paid twice; the shop owner is told so the extra payment can
+		// be refunded, and RT is told the message was received.
+		if (
+			!$id_is_known && $pay_id !== '' && $order->is_paid() &&
+			NFT_Checkout_Payment_State_Engine::map_status($api_order_status) === 'success'
+		) {
+			$second = nft_checkout_verify_payment_claim($order, $data, $pay_id, $known_ids, true, $account ? (int) $account['is_sandbox'] : null, true);
+			if (!is_wp_error($second)) {
+				$this->nft_checkout_flag_second_payment($order, $pay_id);
+				return new WP_REST_Response([
+					'success'       => true,
+					'message'       => 'Second payment recorded for review.',
+					'state'         => 'success',
+					'order_status'  => $order->get_status(),
+					'engine_reason' => 'duplicate_payment_flagged',
+				], 200);
+			}
+		}
+
+		$claim = nft_checkout_verify_payment_claim(
+			$order,
+			$data,
+			$pay_id,
+			$known_ids,
+			true,
+			$account ? (int) $account['is_sandbox'] : null,
+			nft_checkout_may_learn_new_pay_id($order, $data)
+		);
 		if (is_wp_error($claim)) {
 			NFT_Checkout_Payment_Gateway_Logger::warning("Webhook refused for Order #{$order_id}: " . $claim->get_error_message(), [
 				'code'     => $claim->get_error_code(),
@@ -314,6 +391,22 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 				'success' => false,
 				'message' => 'Status required.'
 			], 422);
+		}
+
+		// News that an older payment link closed must not fail an order whose
+		// shopper has since been sent a newer link.
+		if (
+			in_array(NFT_Checkout_Payment_State_Engine::map_status($api_order_status), ['failed', 'cancelled', 'expired'], true) &&
+			nft_checkout_is_superseded_pay_id($order, $pay_id, $known_ids)
+		) {
+			NFT_Checkout_Payment_Gateway_Logger::info("Webhook for an older payment link ignored for Order #{$order_id}", $log_context);
+			return new WP_REST_Response([
+				'success'       => false,
+				'message'       => 'Older payment link; order unchanged.',
+				'state'         => NFT_Checkout_Payment_State_Engine::resolve_final_state($order, null),
+				'order_status'  => $order->get_status(),
+				'engine_reason' => 'superseded_link_ignored',
+			], 200);
 		}
 
 		// The claim is verified: remember the payment id (meta, history, table).
@@ -349,6 +442,10 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 
 		// 423 Locked when the order lock is held, so RT retries.
 		if ($reason === 'locked_skip') {
+			// NFT-03: RT is asked to send this again, so the retry must not be
+			// mistaken for a replay of a message that was already applied.
+			$sig_header = trim((string) $request->get_header('x-signature'));
+			delete_transient('rt_nft_wh_' . substr(hash('sha256', $order_id . '|' . $sig_header), 0, 40));
 			return new WP_REST_Response([
 				'success' => false,
 				'message' => 'Order is currently locked, please retry.'
