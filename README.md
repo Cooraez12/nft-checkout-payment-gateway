@@ -1,6 +1,6 @@
 # NFT Checkout
 
-Accept card payments in WooCommerce through RT's hosted checkout. When the customer places an order, RT e-mails them a secure payment link; they pay by card on RT's page (app.rt.app) and the order is marked paid once RT confirms it.
+Accept card payments in WooCommerce through RT's hosted checkout. When the customer places an order, RT e-mails them a secure payment link; they pay by card on RT's page (rt.app) and the order is marked paid once RT confirms it.
 
 ## Plugin information
 
@@ -55,7 +55,7 @@ For any issues or enhancement requests with this plugin, contact the RT.app supp
 - **Order status** - Processing or Completed after a successful payment.
 - **Show consent checkbox** - a consent checkbox at checkout (classic and block checkout).
 - **Share plugin status with RT** - off by default. When on, the plugin reports its activation state, versions, domain and account titles/public keys to RT.
-- **Host override** - every site talks to production (`https://app.rt.app/payment-api`) for both Sandbox and Live keys; the keys decide the mode. A test shop can return another RT address from the `rt_payment_api_base` filter (for example `https://dev.rt.app/payment-api`) or define `NFT_CHECKOUT_API_BASE_URL` in `wp-config.php`. The older `NFT_CHECKOUT_HOST` / `NFT_CHECKOUT_ENVIRONMENT` settings still work. The address must be on rt.app. Traffic is always HTTPS.
+- **Host override** - every site talks to production (`https://rt.app/payment-api`) for both Sandbox and Live keys; the keys decide the mode. A test shop can return another RT address from the `rt_payment_api_base` filter (for example `https://dev.rt.app/payment-api`) or define `NFT_CHECKOUT_API_BASE_URL` in `wp-config.php`. The older `NFT_CHECKOUT_HOST` / `NFT_CHECKOUT_ENVIRONMENT` settings still work. The address must be on rt.app. Traffic is always HTTPS.
 
 ## External services and data
 
