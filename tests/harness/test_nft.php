@@ -201,11 +201,11 @@ $loader->sync_single_order_status($order);
 check('T10j sync: order without an account is never confirmed', $order->get_status() === 'pending' && count($GLOBALS['http_log']) === 0);
 
 echo "== NFT-04: default host\n";
-check('T11 default API base is production rt.app', NFT_CHECKOUT_API_BASE_URL === 'https://rt.app/payment-api' && NFT_CHECKOUT_BASE_URL === 'https://rt.app');
+check('T11 default API base is production app.rt.app', NFT_CHECKOUT_API_BASE_URL === 'https://app.rt.app/payment-api' && NFT_CHECKOUT_BASE_URL === 'https://app.rt.app');
 check('T11b API base: dev address accepted', nft_checkout_clean_api_base('https://dev.rt.app/payment-api/') === 'https://dev.rt.app/payment-api');
 check('T11c API base: http is forced to https', nft_checkout_clean_api_base('http://dev.rt.app/payment-api') === 'https://dev.rt.app/payment-api');
-check('T11d API base: a host outside rt.app falls back to production', nft_checkout_clean_api_base('https://evil.example/payment-api') === 'https://rt.app/payment-api' && nft_checkout_clean_api_base('https://rt.app.evil.example') === 'https://rt.app/payment-api' && nft_checkout_clean_api_base('https://notrt.app/x') === 'https://rt.app/payment-api');
-check('T11e API base: empty falls back to production', nft_checkout_clean_api_base('') === 'https://rt.app/payment-api');
+check('T11d API base: a host outside rt.app falls back to production', nft_checkout_clean_api_base('https://evil.example/payment-api') === 'https://app.rt.app/payment-api' && nft_checkout_clean_api_base('https://rt.app.evil.example') === 'https://app.rt.app/payment-api' && nft_checkout_clean_api_base('https://notrt.app/x') === 'https://app.rt.app/payment-api');
+check('T11e API base: empty falls back to production', nft_checkout_clean_api_base('') === 'https://app.rt.app/payment-api');
 
 echo "== NFT-05: account sync sends no secret\n";
 reset_world(); $GLOBALS['http'] = function ($u, $a) { if (str_contains($u, 'sync-account-status')) $GLOBALS['sync_req'] = $a; return ['response' => ['code' => 200], 'body' => json_encode(['data' => [['mode' => 'live', 'public_key' => PUB_LIVE, 'status' => 'active']]])]; };
