@@ -15,6 +15,18 @@ Accept card payments in WooCommerce through RT's hosted checkout. When the custo
 **License:** GPLv3 or later
 **License URI:** [GPLv3 License](https://www.gnu.org/licenses/gpl-3.0.html)
 
+
+## Test store against RT's dev service (RT team only)
+
+Real shops need nothing here: sandbox mode with sandbox keys from the RT dashboard talks to `https://app.rt.app/payment-api` and moves no real money. An RT test store that must talk to dev instead adds one must-use plugin, `wp-content/mu-plugins/rt-dev.php`:
+
+```php
+<?php
+add_filter('rt_payment_api_base', fn() => 'https://dev.rt.app/payment-api');
+```
+
+Then paste the dev business test account's sandbox keys and press "Check with RT". The address must be HTTPS on `rt.app` or a `*.rt.app` host; anything else falls back to production. Never point a store at `qa.rt.app` from outside the QA team.
+
 ## Support
 
 For any issues or enhancement requests with this plugin, contact the RT.app support team at https://rt.app/contact-us. Provide your plugin, WooCommerce and WordPress versions to expedite troubleshooting.
