@@ -248,6 +248,11 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY extends WC_Payment_Gateway_CC
 			return;
 		}
 
+		$minimum = $this->nft_checkout_card_minimum_message($order ? $order->get_total() : 0);
+		if ($minimum !== '') {
+			throw $this->nft_checkout_checkout_exception($this->nft_checkout_card_minimum_notice($minimum));
+		}
+
 		/*
 		|--------------------------------------------------------------------------
 		| PHONE VALIDATION
@@ -2121,6 +2126,12 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY extends WC_Payment_Gateway_CC
 	}
 
 	public function payment_fields() {
+		$minimum = $this->nft_checkout_card_minimum_message($this->nft_checkout_cart_total());
+		if ($minimum !== '') {
+			echo '<p class="nft-checkout-minimum" role="alert">' . esc_html($this->nft_checkout_card_minimum_notice($minimum)) . '</p>';
+			return;
+		}
+
 		$description = $this->get_option('description');
 		if (is_array($this->selected_account_for_display) && !empty($this->selected_account_for_display['checkout_subtitle'])) {
 			$description = $this->selected_account_for_display['checkout_subtitle'];
@@ -2147,6 +2158,12 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY extends WC_Payment_Gateway_CC
 	}
 
 	public function validate_fields() {
+
+		$minimum = $this->nft_checkout_card_minimum_message($this->nft_checkout_cart_total());
+		if ($minimum !== '') {
+			wc_add_notice(esc_html($this->nft_checkout_card_minimum_notice($minimum)), 'error');
+			return false;
+		}
 
 		if ($this->get_option('show_consent_checkbox') === 'yes') {
 			$nonce = isset($_POST['nft_checkout_nonce']) ? sanitize_text_field(wp_unslash($_POST['nft_checkout_nonce'])) : '';
@@ -2453,6 +2470,12 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY extends WC_Payment_Gateway_CC
 		$this->selected_account_for_display = $selected;
 
 		if (!$selected) {
+			// Under the card minimum: keep "Pay by card" listed so the shopper
+			// sees why it cannot be used (payment_fields / validate_fields),
+			// instead of the option silently disappearing (QA row 35).
+			if ($this->nft_checkout_card_minimum_message($amount) !== '') {
+				return $available_gateways;
+			}
 			return $this->hide_gateway($available_gateways, $gateway_id);
 		}
 
@@ -2549,6 +2572,76 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY extends WC_Payment_Gateway_CC
 	 * A cached, signed call to a merchant-status / limit endpoint. NFT-05: the
 	 * secret key only signs the request; it is never part of the body.
 	 */
+	/**
+	 * The sentence RT gives when the amount is under the card minimum
+	 * ("Card payments start at $5.00."), or '' when card can take it.
+	 *
+	 * RT answers /check-merchant-status with a 403 and that sentence when the
+	 * cart total is under every card floor the business offers (N27). The
+	 * checkout used to treat it like a refused key and hide "Pay by card", so
+	 * the shopper never learnt why (QA row 35). Reuses the same cached answer
+	 * the availability check reads, so this adds no request.
+	 *
+	 * @param float $amount Cart or order total.
+	 * @return string
+	 */
+	private function nft_checkout_card_minimum_message($amount) {
+		$amount = (float) $amount;
+		if ($amount <= 0) {
+			return '';
+		}
+		$check_amount = $amount > 0.01 ? $amount : 0.01;
+		$message      = '';
+		foreach ($this->get_all_accounts() as $account) {
+			$public = $this->sandbox ? ($account['sandbox_public_key'] ?? '') : ($account['live_public_key'] ?? '');
+			$secret = $this->sandbox ? ($account['sandbox_secret_key'] ?? '') : ($account['live_secret_key'] ?? '');
+			if (empty($public) || empty($secret)) {
+				continue;
+			}
+			$status = $this->get_cached_api_response(
+				$this->get_api_url('/check-merchant-status'),
+				[
+					'is_sandbox'     => $this->sandbox ? 1 : 0,
+					'amount'         => $check_amount,
+					'api_public_key' => $public,
+				],
+				'rt_nft_checkout_' . md5($public . $check_amount) . '_status',
+				300,
+				false,
+				$secret
+			);
+			if (($status['status'] ?? '') === 'success') {
+				// One account can take this amount: no minimum applies.
+				return '';
+			}
+			if (nft_checkout_is_card_minimum_answer($status)) {
+				$message = (string) $status['message'];
+			}
+		}
+		return $message;
+	}
+
+	/**
+	 * What the shopper reads when the order is under the card minimum.
+	 */
+	private function nft_checkout_card_minimum_notice($minimum_message) {
+		return trim($minimum_message) . ' ' . __('Add more to your order to pay by card.', 'nft-checkout-payment-gateway');
+	}
+
+	/**
+	 * The current cart total, or 0 when there is no cart.
+	 */
+	private function nft_checkout_cart_total() {
+		if (!function_exists('WC') || !WC() || !WC()->cart) {
+			return 0.0;
+		}
+		$amount = (float) WC()->cart->get_total('edit');
+		if ($amount < 0.01) {
+			$amount = (float) (WC()->cart->get_totals()['total'] ?? 0);
+		}
+		return $amount;
+	}
+
 	private function get_cached_api_response($url, $data, $cache_key, $ttl = 120, $force_refresh = false, $secret_key = '') {
 		if (!$force_refresh && isset($_GET['refresh_accounts']) && sanitize_text_field(wp_unslash($_GET['refresh_accounts'])) === '1' && isset($_GET['_wpnonce']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['_wpnonce'])), 'refresh_accounts_nonce')) {
 			$force_refresh = true;
@@ -2638,6 +2731,17 @@ private function get_routing_sorted_accounts(array $accounts): array {
 	 * @param float $amount Order/cart total.
 	 * @return array ['title' => string, 'subtitle' => string]
 	 */
+	/**
+	 * The block checkout's text when the cart is under the card minimum, or ''.
+	 *
+	 * @param float $amount Cart total.
+	 * @return string
+	 */
+	public function get_card_minimum_notice_for_amount(float $amount): string {
+		$minimum = $this->nft_checkout_card_minimum_message($amount);
+		return $minimum === '' ? '' : $this->nft_checkout_card_minimum_notice($minimum);
+	}
+
 	public function get_checkout_info_for_amount(float $amount): array {
 		$selected_account = [];
 		$accounts = $this->get_all_accounts();

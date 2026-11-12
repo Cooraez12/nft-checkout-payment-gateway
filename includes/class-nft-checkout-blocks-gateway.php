@@ -73,6 +73,10 @@ class NFT_CHECKOUT_Blocks_Gateway extends AbstractPaymentMethodType {
 				if (!empty($info['title']))    $title       = $info['title'];
 				if (!empty($info['subtitle'])) $description = $info['subtitle'];
 			}
+			if ($gateway && method_exists($gateway, 'get_card_minimum_notice_for_amount')) {
+				$minimum = $gateway->get_card_minimum_notice_for_amount($amount);
+				if ($minimum !== '') $description = '<p class="nft-checkout-minimum" role="alert">' . esc_html($minimum) . '</p>';
+			}
 		}
 
 		$is_active = $this->is_active();
