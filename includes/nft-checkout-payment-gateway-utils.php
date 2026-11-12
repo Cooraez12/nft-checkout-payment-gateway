@@ -992,3 +992,19 @@ if (!function_exists('nft_checkout_mask_email')) {
 		return $masked_user . '@' . $domain;
 	}
 }
+
+if (!function_exists('nft_checkout_is_card_minimum_answer')) {
+	/**
+	 * Whether a /check-merchant-status answer is RT's "under the card minimum"
+	 * refusal (403, "Card payments start at $5.00.") rather than a refused key.
+	 *
+	 * @param mixed $status Decoded response.
+	 * @return bool
+	 */
+	function nft_checkout_is_card_minimum_answer($status) {
+		if (!is_array($status) || (int) ($status['code'] ?? 0) !== 403) {
+			return false;
+		}
+		return preg_match('/^Card payments start at \$[0-9][0-9,]*\.[0-9]{2}\.$/', trim((string) ($status['message'] ?? ''))) === 1;
+	}
+}

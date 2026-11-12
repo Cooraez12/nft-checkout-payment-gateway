@@ -278,6 +278,13 @@ $override = ['pay_id' => base64_encode(UUID_B)];
 $state = $loader->sync_single_order_status($order);
 check('R9 lookup finds link B paid -> processing + paid', $state === 'success' && $order->is_paid() && $order->get_status() === 'processing', 'state=' . var_export($state, true));
 
+echo "== Card minimum answer (QA row 35)\n";
+check('M1 403 "Card payments start at $5.00." is the minimum answer', nft_checkout_is_card_minimum_answer(['code' => 403, 'status' => 'error', 'message' => 'Card payments start at $5.00.']));
+check('M2 thousands separator accepted', nft_checkout_is_card_minimum_answer(['code' => 403, 'status' => 'error', 'message' => 'Card payments start at $1,000.00.']));
+check('M3 a refused key (401) is not the minimum answer', !nft_checkout_is_card_minimum_answer(['code' => 401, 'status' => 'error', 'message' => 'Card payments start at $5.00.']));
+check('M4 an inactive account (403, other text) is not the minimum answer', !nft_checkout_is_card_minimum_answer(['code' => 403, 'status' => 'error', 'message' => 'Your account is not active.']));
+check('M5 success and junk are not the minimum answer', !nft_checkout_is_card_minimum_answer(['code' => 200, 'status' => 'success', 'message' => 'ok']) && !nft_checkout_is_card_minimum_answer(null) && !nft_checkout_is_card_minimum_answer('x'));
+
 $failed = array_filter($results, fn($r) => !$r[1]);
 echo "\n" . count($results) . " checks, " . count($failed) . " failed\n";
 exit($failed ? 1 : 0);

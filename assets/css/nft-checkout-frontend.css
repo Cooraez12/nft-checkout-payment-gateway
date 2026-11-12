@@ -385,3 +385,10 @@
     border-left: 3px solid #2563eb;
     border-radius: 4px;
 }
+
+/* Under the card minimum: why "Pay by card" cannot be used for this order. */
+.nft-checkout-minimum {
+    margin: 0;
+    color: #b42318;
+    font-weight: 600;
+}
