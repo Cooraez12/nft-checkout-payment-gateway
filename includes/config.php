@@ -43,7 +43,7 @@ if (!function_exists('nft_checkout_clean_api_base')) {
 		if (!preg_match('#^[a-z][a-z0-9+.-]*://#i', $candidate)) {
 			$candidate = 'https://' . $candidate;
 		}
-		$parts = function_exists('wp_parse_url') ? wp_parse_url($candidate) : parse_url($candidate);
+		$parts = wp_parse_url($candidate);
 		$host  = is_array($parts) && !empty($parts['host']) ? strtolower((string) $parts['host']) : '';
 		if ($host === '' || !($host === 'rt.app' || substr($host, -7) === '.rt.app')) {
 			return NFT_CHECKOUT_DEFAULT_API_BASE_URL;
@@ -86,14 +86,14 @@ if (!defined('NFT_CHECKOUT_API_BASE_URL')) {
 /* Derived from the API base; never set separately. Used for links to RT pages
  * (Developers) and to recognise RT's own origin. */
 if (!defined('NFT_CHECKOUT_HOST')) {
-	define('NFT_CHECKOUT_HOST', (string) parse_url(NFT_CHECKOUT_API_BASE_URL, PHP_URL_HOST));
+	define('NFT_CHECKOUT_HOST', (string) wp_parse_url(NFT_CHECKOUT_API_BASE_URL, PHP_URL_HOST));
 }
 if (!defined('NFT_CHECKOUT_BASE_URL')) {
-	define('NFT_CHECKOUT_BASE_URL', NFT_CHECKOUT_PROTOCOL . (string) parse_url(NFT_CHECKOUT_API_BASE_URL, PHP_URL_HOST));
+	define('NFT_CHECKOUT_BASE_URL', NFT_CHECKOUT_PROTOCOL . (string) wp_parse_url(NFT_CHECKOUT_API_BASE_URL, PHP_URL_HOST));
 }
 
 if (!defined('NFT_CHECKOUT_PLUGIN_VERSION')) {
-    define('NFT_CHECKOUT_PLUGIN_VERSION', '1.0.3');
+    define('NFT_CHECKOUT_PLUGIN_VERSION', '1.0.4');
 }
 
 /* Gateway id. Orders placed before 1.0.2 may carry the underscore spelling. */

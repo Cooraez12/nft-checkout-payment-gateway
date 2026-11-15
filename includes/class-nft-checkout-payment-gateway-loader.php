@@ -133,10 +133,10 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 		if (!$error) return;
 
 		$messages = [
-			'failed'    => __('Your card payment did not go through, so you have not been charged. Please try again or choose another payment method.', 'nft-checkout-payment-gateway'),
-			'cancelled' => __('You cancelled the card payment, so you have not been charged. You can try again when you are ready.', 'nft-checkout-payment-gateway'),
-			'expired'   => __('The payment link was open for too long and closed, so you have not been charged. Please place the order again to get a new link.', 'nft-checkout-payment-gateway'),
-			'duplicate' => __('It looks like you already paid for this order, so we did not start a second payment. Check your email or your order page. If you were not charged, contact the shop.', 'nft-checkout-payment-gateway'),
+			'failed'    => __('Your card payment did not go through, so you have not been charged. Please try again or choose another payment method.', 'rt-nft-checkout'),
+			'cancelled' => __('You cancelled the card payment, so you have not been charged. You can try again when you are ready.', 'rt-nft-checkout'),
+			'expired'   => __('The payment link was open for too long and closed, so you have not been charged. Please place the order again to get a new link.', 'rt-nft-checkout'),
+			'duplicate' => __('It looks like you already paid for this order, so we did not start a second payment. Check your email or your order page. If you were not charged, contact the shop.', 'rt-nft-checkout'),
 		];
 
 		// Clear error immediately
@@ -197,7 +197,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 	public function nft_checkout_plugin_action_links($links)
 	{
 		$plugin_links = [
-			'<a href="' . esc_url(admin_url('admin.php?page=wc-settings&tab=checkout&section=' . NFT_CHECKOUT_GATEWAY_ID)) . '">' . esc_html__('Settings', 'nft-checkout-payment-gateway') . '</a>',
+			'<a href="' . esc_url(admin_url('admin.php?page=wc-settings&tab=checkout&section=' . NFT_CHECKOUT_GATEWAY_ID)) . '">' . esc_html__('Settings', 'rt-nft-checkout') . '</a>',
 		];
 
 		return array_merge($plugin_links, $links);
@@ -213,8 +213,8 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 	{
 		if (plugin_basename(NFT_CHECKOUT_PAYMENT_GATEWAY_FILE) === $file) {
 			$row_meta = [
-				'docs'    => '<a href="' . esc_url(apply_filters('nft_checkout_docs_url', 'https://rt.app/docs/wordpress-plugin')) . '" target="_blank">' . esc_html__('Documentation', 'nft-checkout-payment-gateway') . '</a>',
-				'support' => '<a href="' . esc_url(apply_filters('nft_checkout_support_url', 'https://rt.app/contact-us')) . '" target="_blank">' . esc_html__('Support', 'nft-checkout-payment-gateway') . '</a>',
+				'docs'    => '<a href="' . esc_url(apply_filters('nft_checkout_docs_url', 'https://rt.app/developers/')) . '" target="_blank">' . esc_html__('Documentation', 'rt-nft-checkout') . '</a>',
+				'support' => '<a href="' . esc_url(apply_filters('nft_checkout_support_url', 'https://rt.app/help/')) . '" target="_blank">' . esc_html__('Support', 'rt-nft-checkout') . '</a>',
 			];
 
 			$links = array_merge($links, $row_meta);
@@ -244,14 +244,14 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 	{
 		$schedules[NFT_CHECKOUT_CRON_INTERVAL] = array(
 			'interval' => 2 * 60 * 60, // 2 hours in seconds = 7200
-			'display'  => __('Every Two Hours (NFT Checkout)', 'nft-checkout-payment-gateway')
+			'display'  => __('Every Two Hours (NFT Checkout)', 'rt-nft-checkout')
 		);
 		return $schedules;
 	}
 
 	function activate_cron_job()
 	{
-		NFT_Checkout_Payment_Gateway_Logger::info('Automatic payment status checks have been enabled.', ['source' => 'nft-checkout-payment-gateway']);
+		NFT_Checkout_Payment_Gateway_Logger::info('Automatic payment status checks have been enabled.', ['source' => 'rt-nft-checkout']);
 
 		// Clear existing scheduled event if it exists
 		wp_clear_scheduled_hook(NFT_CHECKOUT_CRON_HOOK);
@@ -262,7 +262,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 
 	function deactivate_cron_job()
 	{
-		NFT_Checkout_Payment_Gateway_Logger::info('Automatic payment status checks have been disabled.', ['source' => 'nft-checkout-payment-gateway']);
+		NFT_Checkout_Payment_Gateway_Logger::info('Automatic payment status checks have been disabled.', ['source' => 'rt-nft-checkout']);
 		wp_clear_scheduled_hook(NFT_CHECKOUT_CRON_HOOK);
 		wp_clear_scheduled_hook(NFT_CHECKOUT_ASYNC_SYNC_HOOK);
 	}
@@ -278,7 +278,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 	 */
 	public function handle_cron_event()
 	{
-		$logger_context = ['source' => 'nft-checkout-payment-gateway'];
+		$logger_context = ['source' => 'rt-nft-checkout'];
 
 		$this->last_sync = ['ok' => true, 'reason' => '', 'statuses' => []];
 
@@ -405,7 +405,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 		];
 
 		NFT_Checkout_Payment_Gateway_Logger::info('Payment account statuses checked with RT.', [
-			'source'  => 'nft-checkout-payment-gateway',
+			'source'  => 'rt-nft-checkout',
 			'context' => ['checked_accounts' => $statusSummary],
 		]);
 
@@ -494,7 +494,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 	{
 		$reason = $this->last_sync['reason'] ?? '';
 		if ($reason === 'unreachable') {
-			return __('Your settings were saved, but we could not reach RT to check your keys. Card payment stays hidden at checkout until the keys are checked. Press "Check with RT" to try again in a moment.', 'nft-checkout-payment-gateway');
+			return __('Your settings were saved, but we could not reach RT to check your keys. Card payment stays hidden at checkout until the keys are checked. Press "Check with RT" to try again in a moment.', 'rt-nft-checkout');
 		}
 		if ($reason === 'no_keys' || $reason === 'no_accounts') {
 			return '';
@@ -514,19 +514,19 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 		}
 
 		if ($reason === 'refused' && !$seen) {
-			return __('We couldn\'t connect to RT with these keys. Check that the publishable and secret keys are from the same RT account and the same mode (Sandbox or Live).', 'nft-checkout-payment-gateway');
+			return __('We couldn\'t connect to RT with these keys. Check that the publishable and secret keys are from the same RT account and the same mode (Sandbox or Live).', 'rt-nft-checkout');
 		}
 		if (!empty($bad)) {
 			return sprintf(
 				/* translators: %s: account names */
-				__('We couldn\'t connect to RT with the keys for: %s. Check that the publishable and secret keys are from the same RT account and the same mode (Sandbox or Live). Card payment stays hidden at checkout until RT accepts the keys.', 'nft-checkout-payment-gateway'),
+				__('We couldn\'t connect to RT with the keys for: %s. Check that the publishable and secret keys are from the same RT account and the same mode (Sandbox or Live). Card payment stays hidden at checkout until RT accepts the keys.', 'rt-nft-checkout'),
 				implode(', ', array_filter($bad))
 			);
 		}
 		if (!$seen) {
 			return $is_sandbox
-				? __('Test mode is on, but no account has sandbox keys. Add sandbox keys to an account, or turn test mode off.', 'nft-checkout-payment-gateway')
-				: __('No account has live keys yet. Add live keys to take real payments, or turn test mode on to try it with sandbox keys.', 'nft-checkout-payment-gateway');
+				? __('Test mode is on, but no account has sandbox keys. Add sandbox keys to an account, or turn test mode off.', 'rt-nft-checkout')
+				: __('No account has live keys yet. Add live keys to take real payments, or turn test mode on to try it with sandbox keys.', 'rt-nft-checkout');
 		}
 		return '';
 	}
@@ -704,7 +704,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 	{
 		$order_id   = $order->get_id();
 		$log_prefix = "[Order #{$order_id}] Sync |";
-		$ctx        = ['source' => 'nft-checkout-payment-gateway'];
+		$ctx        = ['source' => 'rt-nft-checkout'];
 		$out        = ['state' => null, 'reason' => null, 'data' => null];
 
 		$account = nft_checkout_get_order_account($order);
@@ -898,15 +898,15 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 	{
 		NFT_Checkout_Payment_Gateway_Logger::warning(
 			'[Order #' . $order->get_id() . '] Sync | RT reports paid but ' . $detail . ' Order left unchanged for manual review.',
-			['source' => 'nft-checkout-payment-gateway']
+			['source' => 'rt-nft-checkout']
 		);
 
 		if (!$order->get_meta('_nft_checkout_sync_mismatch_noted')) {
 			$order->add_order_note(
 				'<strong>NFT Checkout</strong><br><br>' .
-				esc_html__('RT reports this payment as completed, but the details do not match the order:', 'nft-checkout-payment-gateway') .
+				esc_html__('RT reports this payment as completed, but the details do not match the order:', 'rt-nft-checkout') .
 				' ' . esc_html($detail) . '<br>' .
-				esc_html__('The order was not changed. Check the payment in your RT account before shipping.', 'nft-checkout-payment-gateway')
+				esc_html__('The order was not changed. Check the payment in your RT account before shipping.', 'rt-nft-checkout')
 			);
 			$order->update_meta_data('_nft_checkout_sync_mismatch_noted', 'yes');
 			$order->save();
@@ -915,12 +915,12 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 
 	function nft_checkout_manual_sync_callback()
 	{
-		$logger_context = ['source' => 'nft-checkout-payment-gateway'];
+		$logger_context = ['source' => 'rt-nft-checkout'];
 		// Verify nonce first
 		if (!check_ajax_referer('nft_checkout_sync_nonce', 'nonce', false)) {
 			NFT_Checkout_Payment_Gateway_Logger::error('Security validation failed during manual sync.', $logger_context);
 			wp_send_json_error([
-				'message' => __('This page was open for too long. Refresh the page and try again.', 'nft-checkout-payment-gateway')
+				'message' => __('This page was open for too long. Refresh the page and try again.', 'rt-nft-checkout')
 			], 400);
 		}
 
@@ -928,7 +928,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 		if (!current_user_can('manage_woocommerce')) {
 			NFT_Checkout_Payment_Gateway_Logger::error('Unauthorized manual sync attempt by user ID: ' . get_current_user_id(), $logger_context);
 			wp_send_json_error([
-				'message' => __('You do not have permission to do this. Ask the shop owner or an administrator.', 'nft-checkout-payment-gateway')
+				'message' => __('You do not have permission to do this. Ask the shop owner or an administrator.', 'rt-nft-checkout')
 			], 403);
 		}
 
@@ -948,14 +948,14 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 			}
 			NFT_Checkout_Payment_Gateway_Logger::error('Payment accounts sync failed: ' . $e->getMessage(), $logger_context);
 			wp_send_json_error([
-				'message' => __('Something went wrong while checking your keys with RT. Try again in a moment. If it keeps happening, contact RT support.', 'nft-checkout-payment-gateway'),
+				'message' => __('Something went wrong while checking your keys with RT. Try again in a moment. If it keeps happening, contact RT support.', 'rt-nft-checkout'),
 			], 500);
 		}
 
 		$reason = $this->last_sync['reason'] ?? '';
 		if ($reason === 'no_accounts' || $reason === 'no_keys') {
 			wp_send_json_error([
-				'message'  => __('There are no saved keys to check. Add a payment account, paste your keys and press Save changes first.', 'nft-checkout-payment-gateway'),
+				'message'  => __('There are no saved keys to check. Add a payment account, paste your keys and press Save changes first.', 'rt-nft-checkout'),
 				'statuses' => [],
 			], 200);
 		}
@@ -965,7 +965,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 			NFT_Checkout_Payment_Gateway_Logger::warning('Payment accounts sync finished with a problem.', array_merge($logger_context, ['reason' => $reason]));
 			wp_send_json_error([
 				'message'  => ($reason === 'unreachable')
-					? __('We could not reach RT. Check your internet connection and try again in a moment.', 'nft-checkout-payment-gateway')
+					? __('We could not reach RT. Check your internet connection and try again in a moment.', 'rt-nft-checkout')
 					: $problem,
 				'statuses' => $statusSummary,
 			], 200);
@@ -974,7 +974,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 		NFT_Checkout_Payment_Gateway_Logger::info('Payment accounts sync completed successfully.', $logger_context);
 
 		wp_send_json_success([
-			'message'   => __('RT accepted your keys. Shoppers can pay by card.', 'nft-checkout-payment-gateway'),
+			'message'   => __('RT accepted your keys. Shoppers can pay by card.', 'rt-nft-checkout'),
 			'timestamp' => current_time('mysql'),
 			'statuses'  => $statusSummary,
 		]);
@@ -1046,7 +1046,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 		if (is_wp_error($response)) {
 			NFT_Checkout_Payment_Gateway_Logger::error(
 				'Plugin status API call failed.',
-				['source' => 'nft-checkout-payment-gateway', 'error' => $response->get_error_message()]
+				['source' => 'rt-nft-checkout', 'error' => $response->get_error_message()]
 			);
 			return;
 		}
@@ -1054,7 +1054,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 		NFT_Checkout_Payment_Gateway_Logger::info(
 			'Plugin status sent.',
 			[
-				'source'  => 'nft-checkout-payment-gateway',
+				'source'  => 'rt-nft-checkout',
 				'context' => [
 					'plugin_status'  => $plugin_status,
 					'gateway_loaded' => $gateway_loaded,
@@ -1128,7 +1128,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 			$order = $theorder;
 		}
 		if ($order instanceof WC_Order && nft_checkout_is_gateway_order($order)) {
-			$actions['nft_checkout_check_status'] = __('Check this card payment with RT', 'nft-checkout-payment-gateway');
+			$actions['nft_checkout_check_status'] = __('Check this card payment with RT', 'rt-nft-checkout');
 		}
 		return $actions;
 	}
@@ -1147,11 +1147,11 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Loader
 
 		$result = $this->sync_single_order_status($order);
 		if ($result === 'success') {
-			$order->add_order_note(__('Checked with RT: the customer has paid.', 'nft-checkout-payment-gateway'));
+			$order->add_order_note(__('Checked with RT: the customer has paid.', 'rt-nft-checkout'));
 		} elseif ($result) {
 			$order->add_order_note(nft_checkout_plain_status_sentence($result));
 		} else {
-			$order->add_order_note(__('Checked with RT: the customer has not paid yet.', 'nft-checkout-payment-gateway'));
+			$order->add_order_note(__('Checked with RT: the customer has not paid yet.', 'rt-nft-checkout'));
 		}
 	}
 

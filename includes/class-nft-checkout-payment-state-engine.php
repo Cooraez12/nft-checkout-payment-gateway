@@ -35,7 +35,7 @@ class NFT_Checkout_Payment_State_Engine
         if (!nft_checkout_is_gateway_order($order)) {
             NFT_Checkout_Payment_Gateway_Logger::warning(
                 "Refused state transition for non-nft-checkout order #{$order_id} (payment method: " . $order->get_payment_method() . ')',
-                ['source' => 'nft-checkout-payment-gateway']
+                ['source' => 'rt-nft-checkout']
             );
             return false;
         }
@@ -101,7 +101,7 @@ class NFT_Checkout_Payment_State_Engine
                 if (!$can_transition) {
                     NFT_Checkout_Payment_Gateway_Logger::warning(
                         "Refused state transition to success for order #{$order_id} from state '{$current_state}'",
-                        ['source' => 'nft-checkout-payment-gateway']
+                        ['source' => 'rt-nft-checkout']
                     );
                 }
             }
@@ -109,7 +109,7 @@ class NFT_Checkout_Payment_State_Engine
             if (!$can_transition) {
                 NFT_Checkout_Payment_Gateway_Logger::warning(
                     "Invalid transition blocked for order #{$order_id}: {$current_state} -> {$new_state}",
-                    ['source' => 'nft-checkout-payment-gateway']
+                    ['source' => 'rt-nft-checkout']
                 );
                 return self::safe_response(
                     $order,
@@ -268,10 +268,10 @@ class NFT_Checkout_Payment_State_Engine
         }
 
         /* translators: %s: reference code for the reversal */
-        $detail = $return_code !== '' ? sprintf(__(' (reference %s)', 'nft-checkout-payment-gateway'), $return_code) : '';
+        $detail = $return_code !== '' ? sprintf(__(' (reference %s)', 'rt-nft-checkout'), $return_code) : '';
         $note   = sprintf(
             /* translators: %1$s: bank or card reference in parentheses, or empty */
-            __('This card payment was reversed after it had been received%1$s. The money is no longer in your RT account. The order was not changed: check it before shipping.', 'nft-checkout-payment-gateway'),
+            __('This card payment was reversed after it had been received%1$s. The money is no longer in your RT account. The order was not changed: check it before shipping.', 'rt-nft-checkout'),
             $detail
         );
         if ($reason !== '') {
@@ -290,7 +290,7 @@ class NFT_Checkout_Payment_State_Engine
                 $to,
                 sprintf(
                     /* translators: 1: site name, 2: order number */
-                    __('[%1$s] Payment returned for order #%2$s', 'nft-checkout-payment-gateway'),
+                    __('[%1$s] Payment returned for order #%2$s', 'rt-nft-checkout'),
                     wp_specialchars_decode(get_bloginfo('name'), ENT_QUOTES),
                     $order->get_order_number()
                 ),
