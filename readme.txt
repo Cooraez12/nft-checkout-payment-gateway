@@ -74,6 +74,7 @@ Yes. Turn on sandbox mode and enter the sandbox keys from your RT dashboard. No 
 * Licence is now GPLv2 or later.
 * Help and documentation links point to https://rt.app/help/ and https://rt.app/developers/.
 * Code tidy-ups from the WordPress Plugin Check; no change to how payments work.
+* The old `NFT_CHECKOUT_ENVIRONMENT` setting in wp-config.php is gone. Test stores that used it should use the `rt_payment_api_base` filter or `NFT_CHECKOUT_HOST` instead.
 
 
 = 1.0.3 =
@@ -110,7 +111,7 @@ Yes. Turn on sandbox mode and enter the sandbox keys from your RT dashboard. No 
 == Upgrade Notice ==
 
 = 1.0.4 =
-New name and WordPress.org release. No settings change.
+New name and WordPress.org release. Test stores that set NFT_CHECKOUT_ENVIRONMENT must switch to the rt_payment_api_base filter.
 
 = 1.0.3 =
 Points the plugin back at https://app.rt.app/payment-api and explains the card minimum at checkout. No settings change.
