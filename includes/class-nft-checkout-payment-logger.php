@@ -18,7 +18,7 @@ class NFT_Checkout_Payment_Gateway_Logger {
 	private static function format_context($context)
 	{
 		$entry = [
-			'source' => 'nft-checkout-payment-gateway'
+			'source' => 'rt-nft-checkout'
 		];
 
 		if (!is_array($context)) {

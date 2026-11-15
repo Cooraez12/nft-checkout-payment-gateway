@@ -50,7 +50,7 @@ function nft_checkout_migrate_legacy_rows()
 
 /**
  * Normalise this plugin's own settings. NFT-13: nothing is read from, or
- * copied out of, the Unified / Voucher Pay plugin's options any more; a
+ * copied out of, an older plugin's options any more; a
  * merchant who used that plugin enters their RT keys here themselves.
  */
 function nft_checkout_migrate_old_settings()

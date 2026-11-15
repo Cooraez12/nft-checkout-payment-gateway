@@ -163,7 +163,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 		$flagged[] = $pay_id;
 		$order->update_meta_data('_nft_checkout_duplicate_payments', $flagged);
 
-		$note = __('The customer has paid for this order twice. The order was not changed. Refund the extra payment in your RT account.', 'nft-checkout-payment-gateway');
+		$note = __('The customer has paid for this order twice. The order was not changed. Refund the extra payment in your RT account.', 'rt-nft-checkout');
 		$order->add_order_note($note);
 		$order->save();
 
@@ -173,7 +173,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 				$recipient,
 				sprintf(
 					/* translators: %s: order number */
-					__('Order #%s was paid twice', 'nft-checkout-payment-gateway'),
+					__('Order #%s was paid twice', 'rt-nft-checkout'),
 					$order->get_order_number()
 				),
 				$note . "\n\n" . admin_url('admin.php?page=wc-orders&action=edit&id=' . $order->get_id())
@@ -184,7 +184,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 	public function nft_checkout_handle_api_request(WP_REST_Request $request)
 	{
 		$method      = strtoupper((string) $request->get_method());
-		$log_context = ['source' => 'nft-checkout-payment-gateway'];
+		$log_context = ['source' => 'rt-nft-checkout'];
 
 		// ----------------------------------------------------
 		// 1. GET REQUEST (CUSTOMER RETURN REDIRECT)
@@ -233,7 +233,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 			$wc_status = $order ? $order->get_status() : 'pending';
 			if (in_array($wc_status, ['failed', 'cancelled'], true)) {
 				if (function_exists('wc_add_notice') && function_exists('WC') && WC() && WC()->session) {
-					wc_add_notice(__('Your card payment was not completed, so you have not been charged. Please try again or choose another payment method.', 'nft-checkout-payment-gateway'), 'error');
+					wc_add_notice(__('Your card payment was not completed, so you have not been charged. Please try again or choose another payment method.', 'rt-nft-checkout'), 'error');
 				}
 				wp_safe_redirect(wc_get_checkout_url());
 			} else {

@@ -1,20 +1,20 @@
-=== NFT Checkout ===
+=== RT NFT Checkout ===
 Contributors: rtapp
-Tags: woocommerce, payment gateway, card payments, RT.app
+Tags: woocommerce, payment gateway, card payments, credit card, checkout
 Requires at least: 6.2
 Tested up to: 7.1
 Requires PHP: 8.0
 WC requires at least: 6.5.4
-WC tested up to: 11.0
-Stable tag: 1.0.3
-License: GPLv3 or later
-License URI: https://www.gnu.org/licenses/gpl-3.0.html
+WC tested up to: 11.3
+Stable tag: 1.0.4
+License: GPLv2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
 Accept card payments in WooCommerce through RT's hosted checkout: the customer receives an e-mail voucher and pays on RT's secure page.
 
 == Description ==
 
-NFT Checkout adds a "Pay by card" option to your WooCommerce checkout. When the customer places the order, RT e-mails them a secure payment link; they open it and pay by card on RT's hosted page (app.rt.app). The order stays pending until RT confirms the payment, then moves to Processing (or Completed, as configured).
+RT NFT Checkout adds a "Pay by card" option to your WooCommerce checkout. When the customer places the order, RT e-mails them a secure payment link; they open it and pay by card on RT's hosted page (app.rt.app). The order stays pending until RT confirms the payment, then moves to Processing (or Completed, as configured).
 
 Supports the classic and block checkouts, WooCommerce High-Performance Order Storage, several RT business accounts with priority routing, and a sandbox mode for testing.
 
@@ -37,16 +37,16 @@ RT sends payment status updates back to your shop at `/wp-json/nft-checkout/v1/d
 
 Your secret API keys are stored in your WordPress database and are only ever used to sign requests; they are never transmitted to RT or shown in the browser. Card details are entered on RT's payment page and never pass through your shop.
 
-* Terms of Service: https://rt.app/terms
-* Privacy Policy: https://rt.app/privacy
+* Terms of Service: https://rt.app/terms/
+* Privacy Policy: https://rt.app/privacy/
+* All RT legal terms: https://rt.app/legal/
 
 == Installation ==
 
-1. Download the plugin ZIP file.
-2. In WordPress go to Plugins > Add New > Upload Plugin and upload the ZIP, or extract it into `wp-content/plugins`.
-3. Activate the plugin through the 'Plugins' menu in WordPress.
-4. Go to WooCommerce > Settings > Payments > NFT Checkout, turn on the payment method and add an account with your RT keys (sandbox keys are enough to test).
-5. Press "Check with RT" to confirm RT accepts the keys.
+1. In WordPress go to Plugins > Add New, search for "RT NFT Checkout" and press Install Now. (Or upload the plugin ZIP under Plugins > Add New > Upload Plugin.)
+2. Activate the plugin. WooCommerce must be active.
+3. Go to WooCommerce > Settings > Payments > RT NFT Checkout, turn on the payment method and add an account with your RT keys (sandbox keys are enough to test).
+4. Press "Check with RT" to confirm RT accepts the keys.
 
 == Frequently Asked Questions ==
 
@@ -62,7 +62,20 @@ The customer has been e-mailed their payment link but has not paid yet. The orde
 
 Yes. Turn on sandbox mode and enter the sandbox keys from your RT dashboard. No real money moves, and test orders are labelled on the order screen. Turn sandbox mode off before taking real orders.
 
+== Screenshots ==
+
+1. The "Pay by card" option at checkout.
+2. The settings screen with a payment account added.
+
 == Changelog ==
+
+= 1.0.4 =
+* New name: RT NFT Checkout. Prepared for the WordPress.org plugin directory.
+* Licence is now GPLv2 or later.
+* Help and documentation links point to https://rt.app/help/ and https://rt.app/developers/.
+* Code tidy-ups from the WordPress Plugin Check; no change to how payments work.
+* The old `NFT_CHECKOUT_ENVIRONMENT` setting in wp-config.php is gone. Test stores that used it should use the `rt_payment_api_base` filter or `NFT_CHECKOUT_HOST` instead.
+
 
 = 1.0.3 =
 * The production address is https://app.rt.app/payment-api again (1.0.2's last change pointed it at the website host).
@@ -80,7 +93,7 @@ Yes. Turn on sandbox mode and enter the sandbox keys from your RT dashboard. No 
 * The checkout script no longer rewrites billing names or city.
 * Block checkout now goes through WooCommerce's Store API, so all WooCommerce validation and extensions run.
 * Fixed the pay-for-order redirect; building the order-received URL no longer calls RT.
-* Removed the import of Unified / Voucher Pay plugin credentials; the plugin uses its own database table and `rt_`-prefixed cron and transient names.
+* Removed the import of credentials from older plugins; the plugin uses its own database table and `rt_`-prefixed cron and transient names.
 * Rate limits are counted per session and per order instead of per shared IP.
 * Admin order screens no longer call RT while rendering; status checks run in the background.
 * Secret keys are masked in the settings screen; API responses are no longer logged in full.
@@ -97,6 +110,9 @@ Yes. Turn on sandbox mode and enter the sandbox keys from your RT dashboard. No 
 
 == Upgrade Notice ==
 
+= 1.0.4 =
+New name and WordPress.org release. Test stores that set NFT_CHECKOUT_ENVIRONMENT must switch to the rt_payment_api_base filter.
+
 = 1.0.3 =
 Points the plugin back at https://app.rt.app/payment-api and explains the card minimum at checkout. No settings change.
 
@@ -111,4 +127,4 @@ Initial release.
 
 == Support ==
 
-For support, visit: https://rt.app/contact-us
+For help, visit https://rt.app/help/ or e-mail support@rt.app.

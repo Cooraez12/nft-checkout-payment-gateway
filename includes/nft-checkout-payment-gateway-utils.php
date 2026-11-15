@@ -13,7 +13,7 @@ function nft_checkout_check_system_requirements()
 	if (version_compare(phpversion(), NFT_CHECKOUT_PAYMENT_GATEWAY_MIN_PHP_VER, '<')) {
 		return sprintf(
 			// translators: %1$s is the minimum required PHP version, %2$s is the current PHP version
-			__('NFT Checkout needs PHP version %1$s or newer. This site runs %2$s. Ask your web host to update PHP.', 'nft-checkout-payment-gateway'),
+			__('NFT Checkout needs PHP version %1$s or newer. This site runs %2$s. Ask your web host to update PHP.', 'rt-nft-checkout'),
 			NFT_CHECKOUT_PAYMENT_GATEWAY_MIN_PHP_VER,
 			phpversion()
 		);
@@ -27,9 +27,9 @@ function nft_checkout_check_system_requirements()
 	if (!$wc_db_version || version_compare($wc_db_version, NFT_CHECKOUT_PAYMENT_GATEWAY_MIN_WC_VER, '<')) {
 		return sprintf(
 			// translators: %1$s is the minimum required WooCommerce database version, %2$s is the current WooCommerce database version (or "undefined" if not available)
-			__('NFT Checkout needs WooCommerce database version %1$s or newer. This site has %2$s. Update WooCommerce and run its database update.', 'nft-checkout-payment-gateway'),
+			__('NFT Checkout needs WooCommerce database version %1$s or newer. This site has %2$s. Update WooCommerce and run its database update.', 'rt-nft-checkout'),
 			NFT_CHECKOUT_PAYMENT_GATEWAY_MIN_WC_VER,
-			$wc_db_version ? $wc_db_version : __('an unknown version', 'nft-checkout-payment-gateway')
+			$wc_db_version ? $wc_db_version : __('an unknown version', 'rt-nft-checkout')
 		);
 	}
 
@@ -37,9 +37,9 @@ function nft_checkout_check_system_requirements()
 	if (!$wc_plugin_version || version_compare($wc_plugin_version, NFT_CHECKOUT_PAYMENT_GATEWAY_MIN_WC_VER, '<')) {
 		return sprintf(
 			// translators: %1$s is the minimum required WooCommerce plugin version, %2$s is the current WooCommerce plugin version (or "undefined" if not available)
-			__('NFT Checkout needs WooCommerce version %1$s or newer. This site has %2$s. Update WooCommerce.', 'nft-checkout-payment-gateway'),
+			__('NFT Checkout needs WooCommerce version %1$s or newer. This site has %2$s. Update WooCommerce.', 'rt-nft-checkout'),
 			NFT_CHECKOUT_PAYMENT_GATEWAY_MIN_WC_VER,
-			$wc_plugin_version ? $wc_plugin_version : __('an unknown version', 'nft-checkout-payment-gateway')
+			$wc_plugin_version ? $wc_plugin_version : __('an unknown version', 'rt-nft-checkout')
 		);
 	}
 
@@ -288,28 +288,28 @@ function nft_checkout_account_status_texts()
 {
 	return [
 		'active'        => [
-			__('Connected', 'nft-checkout-payment-gateway'),
-			__('RT accepted these keys. Shoppers can pay by card.', 'nft-checkout-payment-gateway'),
+			__('Connected', 'rt-nft-checkout'),
+			__('RT accepted these keys. Shoppers can pay by card.', 'rt-nft-checkout'),
 		],
 		'pending'       => [
-			__('Waiting for RT approval', 'nft-checkout-payment-gateway'),
-			__('RT has your keys but your account is not approved yet. Shoppers cannot pay by card until it is. Check your RT account for anything left to finish.', 'nft-checkout-payment-gateway'),
+			__('Waiting for RT approval', 'rt-nft-checkout'),
+			__('RT has your keys but your account is not approved yet. Shoppers cannot pay by card until it is. Check your RT account for anything left to finish.', 'rt-nft-checkout'),
 		],
 		'inactive'      => [
-			__('Not active', 'nft-checkout-payment-gateway'),
-			__('This account cannot take payments right now. Check your RT account, or add keys for this mode.', 'nft-checkout-payment-gateway'),
+			__('Not active', 'rt-nft-checkout'),
+			__('This account cannot take payments right now. Check your RT account, or add keys for this mode.', 'rt-nft-checkout'),
 		],
 		'invalid'       => [
-			__('Keys not accepted', 'nft-checkout-payment-gateway'),
-			__('RT did not accept these keys. Check that the publishable and secret keys are from the same RT account and the same mode (Sandbox or Live).', 'nft-checkout-payment-gateway'),
+			__('Keys not accepted', 'rt-nft-checkout'),
+			__('RT did not accept these keys. Check that the publishable and secret keys are from the same RT account and the same mode (Sandbox or Live).', 'rt-nft-checkout'),
 		],
 		'not_connected' => [
-			__('Could not connect', 'nft-checkout-payment-gateway'),
-			__('We could not reach RT to check these keys. Press "Check with RT" to try again.', 'nft-checkout-payment-gateway'),
+			__('Could not connect', 'rt-nft-checkout'),
+			__('We could not reach RT to check these keys. Press "Check with RT" to try again.', 'rt-nft-checkout'),
 		],
 		'unknown'       => [
-			__('Not checked yet', 'nft-checkout-payment-gateway'),
-			__('These keys have not been checked with RT yet. Save your changes, then press "Check with RT".', 'nft-checkout-payment-gateway'),
+			__('Not checked yet', 'rt-nft-checkout'),
+			__('These keys have not been checked with RT yet. Save your changes, then press "Check with RT".', 'rt-nft-checkout'),
 		],
 	];
 }
@@ -329,8 +329,8 @@ function nft_checkout_account_status_view($status, $is_sandbox)
 		$status = 'unknown';
 	}
 	$mode = $is_sandbox
-		? __('Sandbox', 'nft-checkout-payment-gateway')
-		: __('Live', 'nft-checkout-payment-gateway');
+		? __('Sandbox', 'rt-nft-checkout')
+		: __('Live', 'rt-nft-checkout');
 
 	return [
 		'class' => str_replace('_', '-', $status),
@@ -444,17 +444,17 @@ function nft_checkout_plain_status_sentence($state)
 {
 	switch (strtolower((string) $state)) {
 		case 'success':
-			return __('Checked with RT: the customer has paid.', 'nft-checkout-payment-gateway');
+			return __('Checked with RT: the customer has paid.', 'rt-nft-checkout');
 		case 'processing':
-			return __('Checked with RT: the payment is being processed. No action is needed yet.', 'nft-checkout-payment-gateway');
+			return __('Checked with RT: the payment is being processed. No action is needed yet.', 'rt-nft-checkout');
 		case 'failed':
-			return __('Checked with RT: the payment did not go through. No money was received.', 'nft-checkout-payment-gateway');
+			return __('Checked with RT: the payment did not go through. No money was received.', 'rt-nft-checkout');
 		case 'cancelled':
-			return __('Checked with RT: the customer cancelled the payment. No money was received.', 'nft-checkout-payment-gateway');
+			return __('Checked with RT: the customer cancelled the payment. No money was received.', 'rt-nft-checkout');
 		case 'expired':
-			return __('Checked with RT: the payment link closed before the customer paid. No money was received.', 'nft-checkout-payment-gateway');
+			return __('Checked with RT: the payment link closed before the customer paid. No money was received.', 'rt-nft-checkout');
 		default:
-			return __('Checked with RT: the customer has not paid yet.', 'nft-checkout-payment-gateway');
+			return __('Checked with RT: the customer has not paid yet.', 'rt-nft-checkout');
 	}
 }
 

@@ -1,20 +1,20 @@
 <?php
 
 /**
- * Plugin Name: NFT Checkout
+ * Plugin Name: RT NFT Checkout
  * Description: Accept card payments in WooCommerce through RT's hosted checkout: the customer receives an e-mail voucher and pays on RT's secure page.
  * Author: RT.app
  * Author URI: https://rt.app/
- * Text Domain: nft-checkout-payment-gateway
+ * Text Domain: rt-nft-checkout
  * Plugin URI: https://rt.app/
- * Version: 1.0.3
+ * Version: 1.0.4
  * Requires at least: 6.2
  * Requires PHP: 8.0
  * Requires Plugins: woocommerce
  * WC requires at least: 6.5.4
- * WC tested up to: 11.0
- * License: GPLv3 or later
- * License URI: https://www.gnu.org/licenses/gpl-3.0.html
+ * WC tested up to: 11.3
+ * License: GPLv2 or later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  *
  * Copyright (c) 2024 RT.app
  */
@@ -221,7 +221,7 @@ add_action('admin_notices', function () {
 		return;
 	}
 	echo '<div class="notice notice-warning"><p><strong>' .
-		esc_html__('NFT Checkout: test mode is on.', 'nft-checkout-payment-gateway') . '</strong> ' .
-		esc_html__('Card orders are test orders and no real money is received. Turn test mode off in the NFT Checkout settings before taking real orders.', 'nft-checkout-payment-gateway') .
+		esc_html__('NFT Checkout: test mode is on.', 'rt-nft-checkout') . '</strong> ' .
+		esc_html__('Card orders are test orders and no real money is received. Turn test mode off in the NFT Checkout settings before taking real orders.', 'rt-nft-checkout') .
 		'</p></div>';
 });
