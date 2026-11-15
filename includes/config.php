@@ -13,12 +13,11 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
  *
  * A test shop can point at another RT environment without editing code:
  *
- *   add_filter('rt_payment_api_base', function () { return 'https://dev.rt.app/payment-api'; });
+ *   add_filter('rt_payment_api_base', function () { return 'https://<test-environment>.rt.app/payment-api'; });
  *
  * (in a must-use plugin, so it runs before this file), or by defining
  * NFT_CHECKOUT_API_BASE_URL in wp-config.php. The older wp-config
- * settings NFT_CHECKOUT_HOST (a bare host) and NFT_CHECKOUT_ENVIRONMENT
- * ('dev' | 'qa' | 'production') are still honoured.
+ * setting NFT_CHECKOUT_HOST (a bare host) is still honoured.
  * The address is always HTTPS and must be on rt.app, so a shop's keys and its
  * customers' details can never be sent anywhere else by a filter.
  */
@@ -63,21 +62,9 @@ if (!defined('NFT_CHECKOUT_PROTOCOL')) {
 if (!defined('NFT_CHECKOUT_API_BASE_URL')) {
 	$nft_checkout_api_base = NFT_CHECKOUT_DEFAULT_API_BASE_URL;
 
-	// Older wp-config settings. An explicit host wins over an environment name.
+	// Older wp-config setting: an explicit host.
 	if (defined('NFT_CHECKOUT_HOST') && is_string(NFT_CHECKOUT_HOST) && trim(NFT_CHECKOUT_HOST) !== '') {
 		$nft_checkout_api_base = 'https://' . preg_replace('#^[a-z][a-z0-9+.-]*://#i', '', rtrim(trim(NFT_CHECKOUT_HOST), '/')) . '/payment-api';
-	} elseif (defined('NFT_CHECKOUT_ENVIRONMENT')) {
-		switch (strtolower((string) NFT_CHECKOUT_ENVIRONMENT)) {
-			case 'dev':
-			case 'development':
-			case 'local':
-				$nft_checkout_api_base = 'https://dev.rt.app/payment-api';
-				break;
-			case 'qa':
-			case 'staging':
-				$nft_checkout_api_base = 'https://qa.rt.app/payment-api';
-				break;
-		}
 	}
 
 	define('NFT_CHECKOUT_API_BASE_URL', nft_checkout_clean_api_base(apply_filters('rt_payment_api_base', $nft_checkout_api_base, 'nft-checkout-payment-gateway')));
