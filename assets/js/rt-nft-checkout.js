@@ -7,7 +7,7 @@
  * "order received" panel built from the gateway's response.
  *
  * The block checkout does not use this file: it goes through the Store API
- * (NFT-11, see nft-checkout-blocks.js).
+ * (NFT-11, see rt-nft-checkout-blocks.js).
  *
  * NFT-10: this script never rewrites billing fields. Validation of names,
  * addresses and postcodes is the server's job.
@@ -35,7 +35,7 @@
 
     const NFTCheckout = {
 
-        PAYMENT_METHOD: nft_checkout_params.payment_method,
+        PAYMENT_METHOD: rtnfch_params.payment_method,
 
         state: {
             submitting: false,
@@ -245,11 +245,11 @@
                 return document.createTextNode(value);
             };
 
-            const $summary = $('<div>', { 'class': 'nft-checkout-order-received__summary' });
+            const $summary = $('<div>', { 'class': 'rt-nft-checkout-order-received__summary' });
 
             const row = function (label, value, modifier) {
                 return $('<div>', {
-                    'class': 'nft-checkout-order-received__row' + (modifier ? ' ' + modifier : '')
+                    'class': 'rt-nft-checkout-order-received__row' + (modifier ? ' ' + modifier : '')
                 }).append(
                     $('<span>').text(label),
                     $('<span>').text(value)
@@ -270,24 +270,24 @@
             });
 
             $summary.append(
-                row('Amount due', details.amount_due || '', 'nft-checkout-order-received__row--total')
+                row('Amount due', details.amount_due || '', 'rt-nft-checkout-order-received__row--total')
             );
 
             const $panel = $('<div>', {
-                'class': 'nft-checkout-order-received',
+                'class': 'rt-nft-checkout-order-received',
                 role: 'status',
                 tabindex: '-1'
             }).append(
 
                 $('<div>', {
-                    'class': 'nft-checkout-order-received__icon',
+                    'class': 'rt-nft-checkout-order-received__icon',
                     'aria-hidden': 'true'
                 }).html(CHECK_ICON),
 
-                $('<h2>', { 'class': 'nft-checkout-order-received__title' })
+                $('<h2>', { 'class': 'rt-nft-checkout-order-received__title' })
                     .text('Order received'),
 
-                $('<p>', { 'class': 'nft-checkout-order-received__lead' }).append(
+                $('<p>', { 'class': 'rt-nft-checkout-order-received__lead' }).append(
                     text('Almost done — check your email ('),
                     $('<strong>').text(details.email || ''),
                     text(') and open the link to pay by card. Your order is saved until you finish.')
@@ -295,7 +295,7 @@
 
                 $summary,
 
-                $('<p>', { 'class': 'nft-checkout-order-received__foot' }).append(
+                $('<p>', { 'class': 'rt-nft-checkout-order-received__foot' }).append(
                     text('We’ll send your receipt to '),
                     $('<strong>').text(details.email || ''),
                     text(' once you’ve paid.')
@@ -309,7 +309,7 @@
 
             this.clearCheckoutErrors();
 
-            $('.nft-checkout-order-received').remove();
+            $('.rt-nft-checkout-order-received').remove();
 
             $('.woocommerce-form-coupon-toggle, .woocommerce-form-login-toggle, form.checkout_coupon, form.woocommerce-form-login').hide();
 
@@ -352,19 +352,19 @@
                 return document.createTextNode(value);
             };
 
-            return $('<p>', { 'class': 'nft-checkout-order-received__link' }).append(
+            return $('<p>', { 'class': 'rt-nft-checkout-order-received__link' }).append(
                 text('Not receiving the email? '),
                 $('<a>', {
-                    'class': 'nft-checkout-order-received__link-anchor',
+                    'class': 'rt-nft-checkout-order-received__link-anchor',
                     href: link,
                     target: '_blank',
                     rel: 'noopener noreferrer'
                 }).append(
                     text('Click here'),
-                    $('<span>', { 'class': 'nft-checkout-order-received__sr-only' })
+                    $('<span>', { 'class': 'rt-nft-checkout-order-received__sr-only' })
                         .text(' (opens in a new tab)'),
                     $('<span>', {
-                        'class': 'nft-checkout-order-received__link-icon',
+                        'class': 'rt-nft-checkout-order-received__link-icon',
                         'aria-hidden': 'true'
                     }).html(EXTERNAL_ICON)
                 )
@@ -398,16 +398,16 @@
             // Clear previous notices first
             $('.woocommerce-notices-wrapper').remove();
 
-            const $wrapper = $('<div>', { 'class': 'woocommerce-notices-wrapper nft-checkout-error-wrap' });
-            const $box = $('<div>', { 'class': 'woocommerce-error nft-checkout-error-box', 'role': 'alert' });
-            const $header = $('<div>', { 'class': 'nft-checkout-error-header' });
+            const $wrapper = $('<div>', { 'class': 'woocommerce-notices-wrapper rt-nft-checkout-error-wrap' });
+            const $box = $('<div>', { 'class': 'woocommerce-error rt-nft-checkout-error-box', 'role': 'alert' });
+            const $header = $('<div>', { 'class': 'rt-nft-checkout-error-header' });
             const $strong = $('<strong>').text(message || '');
 
             $header.append($strong);
             $box.append($header);
 
             if (fields && fields.length) {
-                const $ul = $('<ul>', { 'class': 'nft-checkout-error-fields' });
+                const $ul = $('<ul>', { 'class': 'rt-nft-checkout-error-fields' });
                 fields.forEach(function (field) {
                     $ul.append($('<li>').text(field));
                 });

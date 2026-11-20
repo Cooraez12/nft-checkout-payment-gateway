@@ -3,11 +3,11 @@ if (!defined('ABSPATH')) {
 	exit; // Exit if accessed directly.
 }
 
-class NFT_CHECKOUT_PAYMENT_GATEWAY_Admin_Notices
+class RTNFCH_GATEWAY_Admin_Notices
 {
 	private $notices = [];
 
-	public function nft_checkout_add_notice($key, $type, $message)
+	public function rtnfch_add_notice($key, $type, $message)
 	{
 		// Sanitize the input before storing it
 		$sanitized_key = sanitize_key($key);
@@ -17,7 +17,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Admin_Notices
 		$this->notices[] = array('key' => $sanitized_key, 'type' => $sanitized_type, 'message' => $sanitized_message);
 	}
 
-	public function nft_checkout_remove_notice($key)
+	public function rtnfch_remove_notice($key)
 	{
 		// Sanitize the key before using it
 		$sanitized_key = sanitize_key($key);
@@ -35,6 +35,9 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_Admin_Notices
 
 	public function display_notices()
 	{
+		if (empty($this->notices) || !rtnfch_is_own_admin_screen()) {
+			return;
+		}
 		// Escape data just before outputting it
 		foreach ($this->notices as $notice) {
 			echo '<div class="' . esc_attr($notice['type']) . '"><p>' . esc_html($notice['message']) . '</p></div>';

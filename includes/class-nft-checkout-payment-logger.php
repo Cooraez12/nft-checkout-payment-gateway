@@ -4,7 +4,7 @@ if (!defined('ABSPATH')) {
 	exit;
 }
 
-class NFT_Checkout_Payment_Gateway_Logger {
+class RTNFCH_Logger {
 
 	private static function get_logger()
 	{

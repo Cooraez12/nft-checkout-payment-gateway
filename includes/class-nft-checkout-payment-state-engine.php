@@ -2,7 +2,7 @@
 if (!defined('ABSPATH')) exit;
 
 require_once plugin_dir_path(__FILE__) . 'config.php';
-require_once plugin_dir_path(__FILE__) . 'nft-checkout-payment-gateway-utils.php';
+require_once plugin_dir_path(__FILE__) . 'rt-nft-checkout-payment-gateway-utils.php';
 
 /**
  * The order's payment state machine.
@@ -19,7 +19,7 @@ require_once plugin_dir_path(__FILE__) . 'nft-checkout-payment-gateway-utils.php
  *
  * NFT-08: every event is deduplicated, whatever its source.
  */
-class NFT_Checkout_Payment_State_Engine
+class RTNFCH_State_Engine
 {
     const LOCK_TTL  = 12;
     const EVENT_TTL = 86400;
@@ -32,8 +32,8 @@ class NFT_Checkout_Payment_State_Engine
         $order = wc_get_order($order_id);
         if (!$order) return false;
 
-        if (!nft_checkout_is_gateway_order($order)) {
-            NFT_Checkout_Payment_Gateway_Logger::warning(
+        if (!rtnfch_is_gateway_order($order)) {
+            RTNFCH_Logger::warning(
                 "Refused state transition for non-nft-checkout order #{$order_id} (payment method: " . $order->get_payment_method() . ')',
                 ['source' => 'rt-nft-checkout']
             );
@@ -48,7 +48,7 @@ class NFT_Checkout_Payment_State_Engine
             return self::safe_response($order, 'duplicate_event_ignored', self::get_state($order));
         }
 
-        $lock_key = "rt_nft_checkout_lock_{$order_id}";
+        $lock_key = "rtnfch_lock_{$order_id}";
         $lock_acquired = add_option($lock_key, time() + self::LOCK_TTL, '', 'no');
         if (!$lock_acquired) {
             $lock_time = (int) get_option($lock_key);
@@ -99,7 +99,7 @@ class NFT_Checkout_Payment_State_Engine
                     true
                 );
                 if (!$can_transition) {
-                    NFT_Checkout_Payment_Gateway_Logger::warning(
+                    RTNFCH_Logger::warning(
                         "Refused state transition to success for order #{$order_id} from state '{$current_state}'",
                         ['source' => 'rt-nft-checkout']
                     );
@@ -107,7 +107,7 @@ class NFT_Checkout_Payment_State_Engine
             }
 
             if (!$can_transition) {
-                NFT_Checkout_Payment_Gateway_Logger::warning(
+                RTNFCH_Logger::warning(
                     "Invalid transition blocked for order #{$order_id}: {$current_state} -> {$new_state}",
                     ['source' => 'rt-nft-checkout']
                 );
@@ -181,7 +181,7 @@ class NFT_Checkout_Payment_State_Engine
             'payment_token' => $payload['payment_token'] ?? null,
         ];
 
-        $order->update_meta_data('_nft_checkout_timeline', $timeline);
+        $order->update_meta_data('_rtnfch_timeline', $timeline);
         $order->save();
     }
 
@@ -200,7 +200,7 @@ class NFT_Checkout_Payment_State_Engine
         // stable idempotency key (VERY IMPORTANT)
         $state_lock_key = md5($order_id . '|' . $state . '|' . $payment_token);
 
-        $last_lock = $order->get_meta('_nft_checkout_state_lock');
+        $last_lock = $order->get_meta('_rtnfch_state_lock');
 
         // The lock only short-circuits a repeat of an event that already reached
         // WooCommerce. A 'success' lock on an order that is still unpaid means the
@@ -212,7 +212,7 @@ class NFT_Checkout_Payment_State_Engine
             return;
         }
 
-        $order->update_meta_data('_nft_checkout_state_lock', $state_lock_key);
+        $order->update_meta_data('_rtnfch_state_lock', $state_lock_key);
 
         $wc_status = match ($state) {
             'success'    => self::get_success_wc_status(),
@@ -236,17 +236,17 @@ class NFT_Checkout_Payment_State_Engine
             }
         }
 
-        $order->update_meta_data('_nft_checkout_state', $state);
-        $order->update_meta_data('_nft_checkout_last_event', $event_type);
-        $order->update_meta_data('_nft_checkout_last_event_time', current_time('mysql'));
+        $order->update_meta_data('_rtnfch_state', $state);
+        $order->update_meta_data('_rtnfch_last_event', $event_type);
+        $order->update_meta_data('_rtnfch_last_event_time', current_time('mysql'));
 
         if (!empty($payment_token)) {
-            $order->update_meta_data('_nft_checkout_pay_id', $payment_token);
+            $order->update_meta_data('_rtnfch_pay_id', $payment_token);
         }
 
         if ($state === 'success') {
-            $order->update_meta_data('_nft_checkout_payment_success', 'yes');
-            $order->update_meta_data('_nft_checkout_paid_amount', (float) $order->get_total());
+            $order->update_meta_data('_rtnfch_payment_success', 'yes');
+            $order->update_meta_data('_rtnfch_paid_amount', (float) $order->get_total());
         }
 
         $order->save();
@@ -263,7 +263,7 @@ class NFT_Checkout_Payment_State_Engine
         $reason      = sanitize_text_field((string) ($payload['failure_reason'] ?? ''));
         $token       = sanitize_text_field((string) ($payload['payment_token'] ?? ''));
 
-        if ($order->get_meta('_nft_checkout_payment_returned') === 'yes') {
+        if ($order->get_meta('_rtnfch_payment_returned') === 'yes') {
             return;
         }
 
@@ -278,13 +278,13 @@ class NFT_Checkout_Payment_State_Engine
             $note .= ' ' . $reason;
         }
 
-        $order->update_meta_data('_nft_checkout_payment_returned', 'yes');
-        $order->update_meta_data('_nft_checkout_return_code', $return_code);
-        $order->update_meta_data('_nft_checkout_returned_at', current_time('mysql'));
+        $order->update_meta_data('_rtnfch_payment_returned', 'yes');
+        $order->update_meta_data('_rtnfch_return_code', $return_code);
+        $order->update_meta_data('_rtnfch_returned_at', current_time('mysql'));
         $order->add_order_note('<strong>NFT Checkout</strong><br><br>' . esc_html($note));
         $order->save();
 
-        $to = apply_filters('rt_nft_checkout_alert_email', get_option('admin_email'), $order);
+        $to = apply_filters('rtnfch_alert_email', get_option('admin_email'), $order);
         if (!empty($to) && is_email($to)) {
             wp_mail(
                 $to,
@@ -298,7 +298,7 @@ class NFT_Checkout_Payment_State_Engine
             );
         }
 
-        NFT_Checkout_Payment_Gateway_Logger::warning(
+        RTNFCH_Logger::warning(
             "Payment returned reported for paid order #{$order->get_id()} (not applied automatically).",
             ['event_type' => $event_type, 'return_code' => $return_code]
         );
@@ -306,7 +306,7 @@ class NFT_Checkout_Payment_State_Engine
 
     private static function get_timeline($order)
     {
-        $data = $order->get_meta('_nft_checkout_timeline', true);
+        $data = $order->get_meta('_rtnfch_timeline', true);
 
         if (empty($data) || !is_array($data)) {
             return [];
@@ -355,7 +355,7 @@ class NFT_Checkout_Payment_State_Engine
             }
         }
 
-        $already_synced = (int) $order->get_meta('_nft_checkout_failed_note_count');
+        $already_synced = (int) $order->get_meta('_rtnfch_failed_note_count');
 
         $actual_failed_count = count($failed_events);
 
@@ -376,10 +376,10 @@ class NFT_Checkout_Payment_State_Engine
                 );
             }
 
-            $order->update_meta_data('_nft_checkout_failed_note_count', $actual_failed_count);
+            $order->update_meta_data('_rtnfch_failed_note_count', $actual_failed_count);
         }
 
-        if ($success_event && !$order->get_meta('_nft_checkout_success_note_added')) {
+        if ($success_event && !$order->get_meta('_rtnfch_success_note_added')) {
 
             $order->add_order_note(
                 self::build_order_note(
@@ -389,10 +389,10 @@ class NFT_Checkout_Payment_State_Engine
                 )
             );
 
-            $order->update_meta_data('_nft_checkout_success_note_added', 'yes');
+            $order->update_meta_data('_rtnfch_success_note_added', 'yes');
         }
 
-        if ($cancel_event && !$order->get_meta('_nft_checkout_cancel_note_added')) {
+        if ($cancel_event && !$order->get_meta('_rtnfch_cancel_note_added')) {
 
             $order->add_order_note(
                 self::build_order_note(
@@ -402,7 +402,7 @@ class NFT_Checkout_Payment_State_Engine
                 )
             );
 
-            $order->update_meta_data('_nft_checkout_cancel_note_added', 'yes');
+            $order->update_meta_data('_rtnfch_cancel_note_added', 'yes');
         }
 
         $order->save();
@@ -522,7 +522,7 @@ class NFT_Checkout_Payment_State_Engine
             return 'cancelled';
         }
 
-        $meta_state = $order->get_meta('_nft_checkout_state');
+        $meta_state = $order->get_meta('_rtnfch_state');
         if (!empty($meta_state)) {
             return $meta_state;
         }
@@ -535,7 +535,7 @@ class NFT_Checkout_Payment_State_Engine
      * ========================================================= */
     private static function get_success_wc_status()
     {
-        $settings = nft_checkout_get_settings();
+        $settings = rtnfch_get_settings();
         $status   = $settings['order_status'] ?? 'processing';
 
         return in_array($status, ['processing','completed'], true)
@@ -558,12 +558,12 @@ class NFT_Checkout_Payment_State_Engine
 
     private static function is_duplicate_event($order_id, $event_id)
     {
-        return get_transient("rt_nft_checkout_event_{$order_id}_{$event_id}") !== false;
+        return get_transient("rtnfch_event_{$order_id}_{$event_id}") !== false;
     }
 
     private static function mark_event($order_id, $event_id)
     {
-        set_transient("rt_nft_checkout_event_{$order_id}_{$event_id}", 1, self::EVENT_TTL);
+        set_transient("rtnfch_event_{$order_id}_{$event_id}", 1, self::EVENT_TTL);
     }
 
     /* =========================================================

@@ -2,7 +2,7 @@
 if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 require_once plugin_dir_path(__FILE__) . 'config.php';
-require_once plugin_dir_path(__FILE__) . 'nft-checkout-payment-gateway-utils.php';
+require_once plugin_dir_path(__FILE__) . 'rt-nft-checkout-payment-gateway-utils.php';
 
 use Automattic\WooCommerce\Blocks\Payments\Integrations\AbstractPaymentMethodType;
 
@@ -16,13 +16,13 @@ use Automattic\WooCommerce\Blocks\Payments\Integrations\AbstractPaymentMethodTyp
  * whose redirect sends the shopper to the order-received page while RT
  * e-mails the voucher.
  */
-class NFT_CHECKOUT_Blocks_Gateway extends AbstractPaymentMethodType {
+class RTNFCH_Blocks_Gateway extends AbstractPaymentMethodType {
 
-	protected $name = NFT_CHECKOUT_GATEWAY_ID;
-	protected $id   = NFT_CHECKOUT_GATEWAY_ID;
+	protected $name = RTNFCH_GATEWAY_ID;
+	protected $id   = RTNFCH_GATEWAY_ID;
 
 	public function initialize() {
-		$this->settings = nft_checkout_get_settings();
+		$this->settings = rtnfch_get_settings();
 	}
 
 	public function is_active() {
@@ -43,17 +43,17 @@ class NFT_CHECKOUT_Blocks_Gateway extends AbstractPaymentMethodType {
 	}
 
 	public function get_payment_method_script_handles() {
-		$blocks_js_path = plugin_dir_path(NFT_CHECKOUT_PAYMENT_GATEWAY_FILE) . 'assets/js/nft-checkout-blocks.js';
-		$blocks_js_ver  = file_exists($blocks_js_path) ? filemtime($blocks_js_path) : NFT_CHECKOUT_PLUGIN_VERSION;
+		$blocks_js_path = plugin_dir_path(RTNFCH_GATEWAY_FILE) . 'assets/js/rt-nft-checkout-blocks.js';
+		$blocks_js_ver  = file_exists($blocks_js_path) ? filemtime($blocks_js_path) : RTNFCH_PLUGIN_VERSION;
 
 		wp_register_script(
-			'nft-checkout-blocks-js',
-			plugin_dir_url(NFT_CHECKOUT_PAYMENT_GATEWAY_FILE) . 'assets/js/nft-checkout-blocks.js',
+			'rt-nft-checkout-blocks-js',
+			plugin_dir_url(RTNFCH_GATEWAY_FILE) . 'assets/js/rt-nft-checkout-blocks.js',
 			['wc-blocks-registry', 'wc-settings', 'wp-element', 'wp-html-entities', 'wp-i18n'],
 			$blocks_js_ver,
 			true
 		);
-		return ['nft-checkout-blocks-js'];
+		return ['rt-nft-checkout-blocks-js'];
 	}
 
 	public function get_payment_method_data() {
@@ -75,7 +75,7 @@ class NFT_CHECKOUT_Blocks_Gateway extends AbstractPaymentMethodType {
 			}
 			if ($gateway && method_exists($gateway, 'get_card_minimum_notice_for_amount')) {
 				$minimum = $gateway->get_card_minimum_notice_for_amount($amount);
-				if ($minimum !== '') $description = '<p class="nft-checkout-minimum" role="alert">' . esc_html($minimum) . '</p>';
+				if ($minimum !== '') $description = '<p class="rt-nft-checkout-minimum" role="alert">' . esc_html($minimum) . '</p>';
 			}
 		}
 
@@ -89,7 +89,7 @@ class NFT_CHECKOUT_Blocks_Gateway extends AbstractPaymentMethodType {
 			'can_pay'               => $is_active,
 			'show_consent_checkbox' => ($this->settings['show_consent_checkbox'] ?? 'no') === 'yes',
 			'consent_label'         => __('I consent to the collection of my data to process this payment', 'rt-nft-checkout'),
-			'consent_nonce'         => wp_create_nonce('nft_checkout_payment'),
+			'consent_nonce'         => wp_create_nonce('rtnfch_payment'),
 			'email_notice'          => __('After you place the order, we email you a secure link to pay by card. Your order is saved until you pay.', 'rt-nft-checkout'),
 		];
 	}
