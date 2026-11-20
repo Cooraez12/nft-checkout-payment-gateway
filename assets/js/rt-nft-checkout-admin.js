@@ -1,17 +1,17 @@
 /**
  * NFT Checkout (card payments): settings screen (payment accounts).
  *
- * Class names used here are fixed ("nft-checkout-...") and match the markup
+ * Class names used here are fixed ("rt-nft-checkout-...") and match the markup
  * printed by generate_accounts_repeater_html(). They do not depend on the
  * gateway id, so renaming the gateway id can never disconnect the buttons.
  */
 jQuery(document).ready(function ($) {
 
-	if (typeof nft_checkout_admin_data === 'undefined' || typeof nft_checkout_admin_data.gateway_id !== 'string') {
+	if (typeof rtnfch_admin_data === 'undefined' || typeof rtnfch_admin_data.gateway_id !== 'string') {
 		return;
 	}
 
-	var data = nft_checkout_admin_data;
+	var data = rtnfch_admin_data;
 	var gatewayId = data.gateway_id;
 	var t = data.i18n || {};
 	var statusTexts = data.statuses || {};
@@ -20,14 +20,14 @@ jQuery(document).ready(function ($) {
 	if (!$form.length || !$form.find('input[name^="woocommerce_' + gatewayId + '_"]').length) {
 		return;
 	}
-	$form.addClass('nft-checkout-gateway-settings-form');
+	$form.addClass('rt-nft-checkout-gateway-settings-form');
 
-	var ACCOUNT = '.nft-checkout-account';
-	var CONTAINER = '.nft-checkout-accounts-container';
-	var INFO = '.nft-checkout-info';
-	var TOGGLE = '.nft-checkout-toggle-btn';
-	var SANDBOX_CHECKBOX = '.nft-checkout-sandbox-checkbox';
-	var SANDBOX_KEYS = '.nft-checkout-sandbox-keys';
+	var ACCOUNT = '.rt-nft-checkout-account';
+	var CONTAINER = '.rt-nft-checkout-accounts-container';
+	var INFO = '.rt-nft-checkout-info';
+	var TOGGLE = '.rt-nft-checkout-toggle-btn';
+	var SANDBOX_CHECKBOX = '.rt-nft-checkout-sandbox-checkbox';
+	var SANDBOX_KEYS = '.rt-nft-checkout-sandbox-keys';
 
 	function esc(text) {
 		return $('<div>').text(text == null ? '' : String(text)).html();
@@ -46,7 +46,7 @@ jQuery(document).ready(function ($) {
 	function clearErrors() {
 		$form.find('.error-message').remove();
 		$form.find('.error').removeClass('error');
-		$('#nft-checkout-global-error').text('');
+		$('#rt-nft-checkout-global-error').text('');
 	}
 
 	/* WooCommerce keeps "Save changes" switched off until something changes.
@@ -97,24 +97,24 @@ jQuery(document).ready(function ($) {
 
 	function newAccountHtml() {
 		var position = $(ACCOUNT).length + 1;
-		var checkboxId = 'nft-checkout-sandbox-checkbox-new-' + Date.now();
+		var checkboxId = 'rt-nft-checkout-sandbox-checkbox-new-' + Date.now();
 		// A shop in test mode most likely wants to paste sandbox keys first.
 		var sandboxFirst = sandboxModeOn();
 
 		return '' +
-			'<div class="nft-checkout-account nft-checkout-account-new">' +
+			'<div class="rt-nft-checkout-account rt-nft-checkout-account-new">' +
 				'<input type="hidden" class="live-status" name="accounts[][live_status]" value="unknown">' +
 				'<input type="hidden" class="sandbox-status" name="accounts[][sandbox_status]" value="unknown">' +
 				'<div class="title-blog">' +
 					'<h4>' +
-						'<span class="account-name-display nft-checkout-name-display">' + esc(t.new_account) + '</span>' +
-						'&nbsp;<i class="fa fa-caret-down nft-checkout-toggle-btn account-toggle-btn rotated" aria-hidden="true"></i>' +
+						'<span class="account-name-display rt-nft-checkout-name-display">' + esc(t.new_account) + '</span>' +
+						'&nbsp;<i class="fa fa-caret-down rt-nft-checkout-toggle-btn account-toggle-btn rotated" aria-hidden="true"></i>' +
 					'</h4>' +
 					'<div class="action-button">' +
 						'<button type="button" class="delete-account-btn" title="' + esc(t.remove) + '" aria-label="' + esc(t.remove) + '"><i class="fa fa-trash" aria-hidden="true"></i></button>' +
 					'</div>' +
 				'</div>' +
-				'<div class="nft-checkout-info account-info" style="display: block;">' +
+				'<div class="rt-nft-checkout-info account-info" style="display: block;">' +
 					'<p class="description">' + esc(t.new_account_hint) + '</p>' +
 					'<div class="add-blog title-priority">' +
 						'<div class="account-input account-name">' +
@@ -135,7 +135,7 @@ jQuery(document).ready(function ($) {
 						'<label>' + esc(t.checkout_note) + '</label>' +
 						'<textarea class="checkout-subtitle" name="accounts[][checkout_subtitle]" placeholder="' + esc(t.checkout_note_hint) + '" rows="2"></textarea>' +
 					'</div></div>' +
-					'<div class="add-blog nft-checkout-production-keys">' +
+					'<div class="add-blog rt-nft-checkout-production-keys">' +
 						'<div class="account-input">' +
 							'<label>' + esc(t.live_keys) + '</label>' +
 							'<input type="text" class="live-public-key" name="accounts[][live_public_key]" placeholder="' + esc(t.publishable_key) + '">' +
@@ -143,10 +143,10 @@ jQuery(document).ready(function ($) {
 						'<div class="account-input">' + secretBox('live-secret-key', 'live_secret_key') + '</div>' +
 					'</div>' +
 					'<div class="account-checkbox">' +
-						'<input type="checkbox" class="nft-checkout-sandbox-checkbox" id="' + checkboxId + '" name="accounts[][has_sandbox]"' + (sandboxFirst ? ' checked' : '') + '>' +
+						'<input type="checkbox" class="rt-nft-checkout-sandbox-checkbox" id="' + checkboxId + '" name="accounts[][has_sandbox]"' + (sandboxFirst ? ' checked' : '') + '>' +
 						' <label for="' + checkboxId + '">' + esc(t.have_sandbox) + '</label>' +
 					'</div>' +
-					'<div class="nft-checkout-sandbox-keys"' + (sandboxFirst ? '' : ' style="display: none;"') + '>' +
+					'<div class="rt-nft-checkout-sandbox-keys"' + (sandboxFirst ? '' : ' style="display: none;"') + '>' +
 						'<div class="add-blog">' +
 							'<div class="account-input">' +
 								'<label>' + esc(t.sandbox_keys) + '</label>' +
@@ -160,10 +160,10 @@ jQuery(document).ready(function ($) {
 	}
 
 	/* Add an account. */
-	$(document).on('click', '.nft-checkout-add-account', function (e) {
+	$(document).on('click', '.rt-nft-checkout-add-account', function (e) {
 		e.preventDefault();
 		$(CONTAINER + ' .empty-account').remove();
-		$('#nft-checkout-global-error').text('');
+		$('#rt-nft-checkout-global-error').text('');
 		var $new = $(newAccountHtml());
 		$(this).closest('.add-account-btn').before($new);
 		updateAccountIndices();
@@ -175,7 +175,7 @@ jQuery(document).ready(function ($) {
 	$(document).on('click', CONTAINER + ' .delete-account-btn', function (e) {
 		e.preventDefault();
 		var $account = $(this).closest(ACCOUNT);
-		var isNew = $account.hasClass('nft-checkout-account-new');
+		var isNew = $account.hasClass('rt-nft-checkout-account-new');
 		if (!isNew && !window.confirm(t.confirm_remove)) {
 			return;
 		}
@@ -183,7 +183,7 @@ jQuery(document).ready(function ($) {
 		updateAccountIndices();
 		markChanged();
 		if (!$(ACCOUNT).length) {
-			$('#nft-checkout-global-error').text(t.removed_last);
+			$('#rt-nft-checkout-global-error').text(t.removed_last);
 		}
 	});
 
@@ -331,7 +331,7 @@ jQuery(document).ready(function ($) {
 		if (hasErrors) {
 			event.preventDefault();
 			event.stopImmediatePropagation();
-			$('#nft-checkout-global-error').text(t.fix_errors);
+			$('#rt-nft-checkout-global-error').text(t.fix_errors);
 			$form.find('[type="submit"]').removeClass('is-busy').prop('disabled', false);
 			var $first = $form.find('.error').first();
 			if ($first.length && $first[0].scrollIntoView) {

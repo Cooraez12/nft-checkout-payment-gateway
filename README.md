@@ -22,7 +22,7 @@ Real shops need nothing here: sandbox mode with sandbox keys from the RT dashboa
 
 ```php
 <?php
-add_filter('rt_payment_api_base', fn() => 'https://dev.rt.app/payment-api');
+add_filter('rtnfch_api_base', fn() => 'https://dev.rt.app/payment-api');
 ```
 
 Then paste the dev business test account's sandbox keys and press "Check with RT". The address must be HTTPS on `rt.app` or a `*.rt.app` host; anything else falls back to production. Never point a store at `qa.rt.app` from outside the QA team.
@@ -58,7 +58,7 @@ For any issues or enhancement requests with this plugin, contact the RT.app supp
 1. The customer chooses "Pay by card" and places the order. The order is created pending.
 2. The plugin asks RT to e-mail the customer a voucher (`POST /payment-api/voucher/send`, signed with your secret key).
 3. The customer opens the link in the e-mail and pays on RT's page.
-4. RT posts a signed status update to `/wp-json/nft-checkout/v1/data`. The plugin verifies the signature with the secret key of the account that raised the order, checks that the payment id, exact amount, currency and order match, and only then marks the order paid.
+4. RT posts a signed status update to `/wp-json/rt-nft-checkout/v1/data`. The plugin verifies the signature with the secret key of the account that raised the order, checks that the payment id, exact amount, currency and order match, and only then marks the order paid.
 5. The plugin also confirms open orders with RT (`POST /payment-api/update-txn-status`, signed) when the customer returns to the shop, on the thank-you page, in the background when you open a pending order, and every two hours.
 
 ## Configuration
@@ -67,7 +67,7 @@ For any issues or enhancement requests with this plugin, contact the RT.app supp
 - **Order status** - Processing or Completed after a successful payment.
 - **Show consent checkbox** - a consent checkbox at checkout (classic and block checkout).
 - **Share plugin status with RT** - off by default. When on, the plugin reports its activation state, versions, domain and account titles/public keys to RT.
-- **Host override** - every site talks to production (`https://app.rt.app/payment-api`) for both Sandbox and Live keys; the keys decide the mode. A test shop can return another RT address from the `rt_payment_api_base` filter (for example `https://dev.rt.app/payment-api`) or define `NFT_CHECKOUT_API_BASE_URL` in `wp-config.php`. The older `NFT_CHECKOUT_HOST` setting still works (`NFT_CHECKOUT_ENVIRONMENT` was removed in 1.0.4). The address must be on rt.app. Traffic is always HTTPS.
+- **Host override** - every site talks to production (`https://app.rt.app/payment-api`) for both Sandbox and Live keys; the keys decide the mode. A test shop can return another RT address from the `rtnfch_api_base` filter (for example `https://dev.rt.app/payment-api`) or define `RTNFCH_API_BASE_URL` in `wp-config.php`. The older `RTNFCH_HOST` setting still works (`RTNFCH_ENVIRONMENT` was removed in 1.0.4). The address must be on rt.app. Traffic is always HTTPS.
 
 ## External services and data
 
@@ -75,7 +75,7 @@ See the "External Services" section of `readme.txt` for every endpoint called, w
 
 ## Security notes for developers
 
-- The customer return link (`GET /wp-json/nft-checkout/v1/data?order_id=&key=`) never changes an order by itself; it triggers a signed, merchant-bound confirmation with RT.
+- The customer return link (`GET /wp-json/rt-nft-checkout/v1/data?order_id=&key=`) never changes an order by itself; it triggers a signed, merchant-bound confirmation with RT.
 - Webhooks require `X-Timestamp` and `X-Signature` = hex HMAC-SHA256 of `"<timestamp>.<raw body>"` keyed with the order's account secret, within 300 seconds, not replayed. No key, nonce or bearer token is accepted.
-- An order is marked paid only when the payment id, exact amount, currency, order id and mode all match (`nft_checkout_verify_payment_claim()`); a paid order is never moved down automatically.
+- An order is marked paid only when the payment id, exact amount, currency, order id and mode all match (`rtnfch_verify_payment_claim()`); a paid order is never moved down automatically.
 - `tests/harness/` holds a stub harness (no WordPress, no network) that exercises these paths: `php -n tests/harness/test_nft.php <plugin dir>`.

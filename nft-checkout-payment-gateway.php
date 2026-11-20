@@ -6,8 +6,8 @@
  * Author: RT.app
  * Author URI: https://rt.app/
  * Text Domain: rt-nft-checkout
- * Plugin URI: https://rt.app/nft-checkout/
- * Version: 1.0.4
+ * Plugin URI: https://rt.app/rt-nft-checkout/
+ * Version: 1.0.5
  * Requires at least: 6.2
  * Requires PHP: 8.0
  * Requires Plugins: woocommerce
@@ -23,31 +23,30 @@ if (!defined('ABSPATH')) {
 	exit;
 }
 
-define('NFT_CHECKOUT_PAYMENT_GATEWAY_MIN_PHP_VER', '8.0');
-define('NFT_CHECKOUT_PAYMENT_GATEWAY_MIN_WC_VER', '6.5.4');
-define('NFT_CHECKOUT_PAYMENT_GATEWAY_FILE', __FILE__);
-define('NFT_CHECKOUT_PAYMENT_GATEWAY_PLUGIN_DIR', plugin_dir_path(__FILE__));
+define('RTNFCH_GATEWAY_MIN_PHP_VER', '8.0');
+define('RTNFCH_GATEWAY_MIN_WC_VER', '6.5.4');
+define('RTNFCH_GATEWAY_FILE', __FILE__);
+define('RTNFCH_GATEWAY_PLUGIN_DIR', plugin_dir_path(__FILE__));
 
-if (!defined('NFT_CHECKOUT_PAYMENT_ROW_CACHE_GROUP')) {
-	define('NFT_CHECKOUT_PAYMENT_ROW_CACHE_GROUP', 'nft_checkout_payment_gateway');
+if (!defined('RTNFCH_PAYMENT_ROW_CACHE_GROUP')) {
+	define('RTNFCH_PAYMENT_ROW_CACHE_GROUP', 'rtnfch_payment_gateway');
 }
 
 // Configuration and utility functions
-require_once NFT_CHECKOUT_PAYMENT_GATEWAY_PLUGIN_DIR . 'includes/config.php';
-require_once NFT_CHECKOUT_PAYMENT_GATEWAY_PLUGIN_DIR . 'includes/nft-checkout-payment-gateway-utils.php';
+require_once RTNFCH_GATEWAY_PLUGIN_DIR . 'includes/config.php';
+require_once RTNFCH_GATEWAY_PLUGIN_DIR . 'includes/rt-nft-checkout-payment-gateway-utils.php';
 
 // Migrations functions
 include_once plugin_dir_path(__FILE__) . 'migration.php';
 
-// Autoload classes
-spl_autoload_register(function ($class) {
-	if (strpos($class, 'NFT_CHECKOUT_PAYMENT_GATEWAY') === 0) {
-		$class_file = NFT_CHECKOUT_PAYMENT_GATEWAY_PLUGIN_DIR . 'includes/class-' . str_replace('_', '-', strtolower($class)) . '.php';
-		if (file_exists($class_file)) {
-			require_once $class_file;
-		}
-	}
-});
+// Classes that do not depend on WooCommerce being loaded. The gateway and
+// block-checkout classes extend WooCommerce classes and are loaded later, on
+// plugins_loaded, only when WooCommerce is active.
+require_once RTNFCH_GATEWAY_PLUGIN_DIR . 'includes/class-nft-checkout-payment-logger.php';
+require_once RTNFCH_GATEWAY_PLUGIN_DIR . 'includes/class-nft-checkout-payment-gateway-admin-notices.php';
+require_once RTNFCH_GATEWAY_PLUGIN_DIR . 'includes/class-nft-checkout-payment-state-engine.php';
+require_once RTNFCH_GATEWAY_PLUGIN_DIR . 'includes/class-nft-checkout-payment-gateway-rest-api.php';
+require_once RTNFCH_GATEWAY_PLUGIN_DIR . 'includes/class-nft-checkout-payment-gateway-loader.php';
 
 // Declare HPOS and block checkout compatibility (NFT-18)
 add_action('before_woocommerce_init', function () {
@@ -57,10 +56,10 @@ add_action('before_woocommerce_init', function () {
 	}
 });
 
-NFT_CHECKOUT_PAYMENT_GATEWAY_Loader::get_instance();
+RTNFCH_GATEWAY_Loader::get_instance();
 
 // Tables and option migrations on plugin update (after WooCommerce's own init).
-add_action('init', 'nft_checkout_maybe_upgrade', 20);
+add_action('init', 'rtnfch_maybe_upgrade', 20);
 
 /*
  * NFT-09: WooCommerce's own unpaid-order cancellation is left alone. The
@@ -69,8 +68,8 @@ add_action('init', 'nft_checkout_maybe_upgrade', 20);
  * cancel ANY unpaid order on the whole store. A cancelled or failed NFT
  * Checkout order tells RT through the status hooks below instead.
  */
-add_action('woocommerce_order_status_cancelled', 'nft_checkout_cancel_unpaid_order_action', 10, 1);
-add_action('woocommerce_order_status_failed', 'nft_checkout_cancel_unpaid_order_action', 10, 1);
+add_action('woocommerce_order_status_cancelled', 'rtnfch_cancel_unpaid_order_action', 10, 1);
+add_action('woocommerce_order_status_failed', 'rtnfch_cancel_unpaid_order_action', 10, 1);
 
 /**
  * NFT-12: the order-received URL is decided from what the order already
@@ -83,18 +82,18 @@ add_filter('woocommerce_get_checkout_order_received_url', function($url, $order)
 		return $url;
 	}
 
-	if (!nft_checkout_is_gateway_order($order)) {
+	if (!rtnfch_is_gateway_order($order)) {
 		return $url;
 	}
 
 	$wc_status    = $order->get_status();
-	$engine_state = $order->get_meta('_nft_checkout_state');
-	$success_meta = $order->get_meta('_nft_checkout_payment_success');
+	$engine_state = $order->get_meta('_rtnfch_state');
+	$success_meta = $order->get_meta('_rtnfch_payment_success');
 
 	$is_voucher_dispatched = ($wc_status === 'pending' || $engine_state === 'pending') && (
-		!empty($order->get_meta('_nft_checkout_voucher_emailed_at')) ||
-		!empty($order->get_meta('_nft_checkout_voucher_id')) ||
-		!empty($order->get_meta('_nft_checkout_voucher_reference'))
+		!empty($order->get_meta('_rtnfch_voucher_emailed_at')) ||
+		!empty($order->get_meta('_rtnfch_voucher_id')) ||
+		!empty($order->get_meta('_rtnfch_voucher_reference'))
 	);
 
 	$is_valid = in_array($wc_status, ['processing', 'completed', 'on-hold'], true)
@@ -119,14 +118,14 @@ add_filter('woocommerce_get_checkout_order_received_url', function($url, $order)
  *
  * @param int $order_id The ID of the order.
  */
-function nft_checkout_cancel_unpaid_order_action($order_id)
+function rtnfch_cancel_unpaid_order_action($order_id)
 {
 	if (empty($order_id) || !is_numeric($order_id) || $order_id <= 0) {
 		return;
 	}
 
 	$order = wc_get_order($order_id);
-	if (!$order instanceof WC_Order || !nft_checkout_is_gateway_order($order)) {
+	if (!$order instanceof WC_Order || !rtnfch_is_gateway_order($order)) {
 		return;
 	}
 
@@ -138,15 +137,15 @@ function nft_checkout_cancel_unpaid_order_action($order_id)
 	$target_api_status = ($current_status === 'failed') ? 'failed' : 'canceled';
 
 	$uuid = '';
-	if (class_exists('NFT_CHECKOUT_PAYMENT_GATEWAY_Loader')) {
-		$known = NFT_CHECKOUT_PAYMENT_GATEWAY_Loader::get_instance()->nft_checkout_known_order_pay_ids($order);
+	if (class_exists('RTNFCH_GATEWAY_Loader')) {
+		$known = RTNFCH_GATEWAY_Loader::get_instance()->rtnfch_known_order_pay_ids($order);
 		$uuid  = (string) ($known[0] ?? '');
 	}
 	if ($uuid === '') {
-		$uuid = sanitize_text_field((string) $order->get_meta('_nft_checkout_voucher_id'));
+		$uuid = sanitize_text_field((string) $order->get_meta('_rtnfch_voucher_id'));
 	}
 	if ($uuid === '') {
-		$uuid = sanitize_text_field((string) $order->get_meta('_nft_checkout_voucher_reference'));
+		$uuid = sanitize_text_field((string) $order->get_meta('_rtnfch_voucher_reference'));
 	}
 	if ($uuid === '') {
 		// No voucher, no link: nothing to close at RT.
@@ -155,13 +154,13 @@ function nft_checkout_cancel_unpaid_order_action($order_id)
 
 	// Prevent duplicate API calls for the same order and status.
 	$sync_signature = $uuid . ':' . $target_api_status;
-	if ($order->get_meta('_nft_checkout_cancelled_link_uuid') === $sync_signature) {
+	if ($order->get_meta('_rtnfch_cancelled_link_uuid') === $sync_signature) {
 		return;
 	}
 
-	$account = nft_checkout_get_order_account($order);
+	$account = rtnfch_get_order_account($order);
 	if (!is_array($account) || $account['secret_key'] === '') {
-		NFT_Checkout_Payment_Gateway_Logger::warning("Cancel skipped: no configured account matches order #{$order_id}", [
+		RTNFCH_Logger::warning("Cancel skipped: no configured account matches order #{$order_id}", [
 			'order_id' => $order_id,
 		]);
 		return;
@@ -176,18 +175,18 @@ function nft_checkout_cancel_unpaid_order_action($order_id)
 	$json_body = wp_json_encode($request_payload);
 
 	$response = wp_remote_post(
-		esc_url_raw(NFT_CHECKOUT_API_BASE_URL . '/cancel-order-link'),
+		esc_url_raw(RTNFCH_API_BASE_URL . '/cancel-order-link'),
 		[
 			'method'    => 'POST',
 			'timeout'   => 15,
 			'body'      => $json_body,
-			'headers'   => nft_checkout_signed_headers($account['public_key'], $account['secret_key'], $json_body),
+			'headers'   => rtnfch_signed_headers($account['public_key'], $account['secret_key'], $json_body),
 			'sslverify' => true,
 		]
 	);
 
 	if (is_wp_error($response)) {
-		NFT_Checkout_Payment_Gateway_Logger::error("Cancel/fail API call failed. Order ID: {$order_id}", [
+		RTNFCH_Logger::error("Cancel/fail API call failed. Order ID: {$order_id}", [
 			'order_id' => $order_id,
 			'status'   => $target_api_status,
 			'error'    => $response->get_error_message(),
@@ -199,11 +198,11 @@ function nft_checkout_cancel_unpaid_order_action($order_id)
 	$decoded_response = json_decode(wp_remote_retrieve_body($response), true);
 
 	if ($response_code >= 200 && $response_code < 300 && !empty($decoded_response['status'])) {
-		$order->update_meta_data('_nft_checkout_cancelled_link_uuid', $sync_signature);
+		$order->update_meta_data('_rtnfch_cancelled_link_uuid', $sync_signature);
 		$order->save();
 	}
 
-	NFT_Checkout_Payment_Gateway_Logger::info("Cancel/fail API response received for Order ID: {$order_id}.", [
+	RTNFCH_Logger::info("Cancel/fail API response received for Order ID: {$order_id}.", [
 		'order_id'      => $order_id,
 		'status'        => $target_api_status,
 		'response_code' => $response_code,
@@ -211,17 +210,20 @@ function nft_checkout_cancel_unpaid_order_action($order_id)
 	]);
 }
 
-/* Sandbox mode is a merchant-visible state, not a quiet one. */
+/*
+ * Test mode is shown to the merchant, but only on this plugin's settings
+ * screen and WooCommerce order screens, never across the whole dashboard.
+ */
 add_action('admin_notices', function () {
-	if (!current_user_can('manage_woocommerce') || !nft_checkout_is_sandbox()) {
+	if (!current_user_can('manage_woocommerce') || !rtnfch_is_sandbox() || !rtnfch_is_own_admin_screen(false)) {
 		return;
 	}
-	$settings = nft_checkout_get_settings();
+	$settings = rtnfch_get_settings();
 	if (($settings['enabled'] ?? 'no') !== 'yes') {
 		return;
 	}
 	echo '<div class="notice notice-warning"><p><strong>' .
-		esc_html__('NFT Checkout: test mode is on.', 'rt-nft-checkout') . '</strong> ' .
-		esc_html__('Card orders are test orders and no real money is received. Turn test mode off in the NFT Checkout settings before taking real orders.', 'rt-nft-checkout') .
+		esc_html__('RT NFT Checkout: test mode is on.', 'rt-nft-checkout') . '</strong> ' .
+		esc_html__('Card orders are test orders and no real money is received. Turn test mode off in the RT NFT Checkout settings before taking real orders.', 'rt-nft-checkout') .
 		'</p></div>';
 });

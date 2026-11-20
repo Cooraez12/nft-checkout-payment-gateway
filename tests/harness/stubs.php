@@ -10,11 +10,11 @@ define('MINUTE_IN_SECONDS', 60);
 define('HOUR_IN_SECONDS', 3600);
 define('DAY_IN_SECONDS', 86400);
 define('ARRAY_A', 'ARRAY_A');
-define('NFT_CHECKOUT_PAYMENT_GATEWAY_MIN_PHP_VER', '8.0');
-define('NFT_CHECKOUT_PAYMENT_GATEWAY_MIN_WC_VER', '6.5.4');
-define('NFT_CHECKOUT_PAYMENT_GATEWAY_FILE', $GLOBALS['plugin_dir'] . '/nft-checkout-payment-gateway.php');
-define('NFT_CHECKOUT_PAYMENT_GATEWAY_PLUGIN_DIR', $GLOBALS['plugin_dir'] . '/');
-define('NFT_CHECKOUT_PAYMENT_ROW_CACHE_GROUP', 'nft_checkout_payment_gateway');
+define('RTNFCH_GATEWAY_MIN_PHP_VER', '8.0');
+define('RTNFCH_GATEWAY_MIN_WC_VER', '6.5.4');
+define('RTNFCH_GATEWAY_FILE', $GLOBALS['plugin_dir'] . '/nft-checkout-payment-gateway.php');
+define('RTNFCH_GATEWAY_PLUGIN_DIR', $GLOBALS['plugin_dir'] . '/');
+define('RTNFCH_PAYMENT_ROW_CACHE_GROUP', 'rtnfch_payment_gateway');
 
 $GLOBALS['options']    = [];
 $GLOBALS['transients'] = [];
@@ -30,8 +30,8 @@ $GLOBALS['log']        = [];
 class RedirectException extends Exception { public $url; public function __construct($url) { parent::__construct('redirect'); $this->url = $url; } }
 
 function plugin_dir_path($f) { return rtrim(dirname($f), '/\\') . '/'; }
-function plugin_dir_url($f) { return 'https://shop.test/wp-content/plugins/nft-checkout-payment-gateway/'; }
-function plugin_basename($f) { return 'nft-checkout-payment-gateway/nft-checkout-payment-gateway.php'; }
+function plugin_dir_url($f) { return 'https://shop.test/wp-content/plugins/rt-nft-checkout/'; }
+function plugin_basename($f) { return 'rt-nft-checkout-payment-gateway/nft-checkout-payment-gateway.php'; }
 function add_action($hook, $cb, $p = 10, $a = 1) { $GLOBALS['hooks'][$hook][] = $cb; }
 function add_filter($hook, $cb, $p = 10, $a = 1) { $GLOBALS['hooks'][$hook][] = $cb; }
 function apply_filters($hook, $value) { return $value; }
@@ -107,7 +107,7 @@ function WC() { static $wc = null; if (!$wc) { $wc = new class { public $session
 class WP_Error { private $code; private $msg; public function __construct($c, $m = '') { $this->code = $c; $this->msg = $m; } public function get_error_code() { return $this->code; } public function get_error_message() { return $this->msg; } }
 class WP_REST_Request {
 	private $method; private $route; private $headers = []; private $body = ''; private $query = [];
-	public function __construct($method, $route = '/nft-checkout/v1/data') { $this->method = $method; $this->route = $route; }
+	public function __construct($method, $route = '/rt-nft-checkout/v1/data') { $this->method = $method; $this->route = $route; }
 	public function set_header($k, $v) { $this->headers[strtolower(str_replace('_', '-', $k))] = $v; }
 	public function set_body($b) { $this->body = $b; }
 	public function set_query_params($q) { $this->query = $q; }
@@ -123,7 +123,7 @@ class WP_REST_Response { public $data; public $status; public function __constru
 
 class WC_Order {
 	private $id; private $status = 'pending'; private $meta = []; private $notes = []; private $paid = false; private $txn = '';
-	public $total = '90.00'; public $currency = 'USD'; public $key = 'wc_order_key_123'; public $method = 'nft-checkout'; public $email = 'shopper@example.test';
+	public $total = '90.00'; public $currency = 'USD'; public $key = 'wc_order_key_123'; public $method = 'rt-nft-checkout'; public $email = 'shopper@example.test';
 	public function __construct($id) { $this->id = $id; }
 	public function get_id() { return $this->id; }
 	public function get_status() { return $this->status; }
@@ -154,7 +154,7 @@ class WPDB_Stub {
 	public $prefix = 'wp_'; public $options = 'wp_options'; public $postmeta = 'wp_postmeta'; public $last_error = '';
 	public $rows = [];
 	public function prepare($q, ...$a) { $i = 0; return preg_replace_callback('/%[idsf]/', function ($m) use (&$i, $a) { $v = $a[$i++] ?? ''; return $m[0] === '%i' ? $v : (is_numeric($v) ? $v : "'" . $v . "'"); }, $q); }
-	public function get_var($q) { if (stripos($q, 'SHOW TABLES') !== false) return 'wp_rt_nft_checkout_payment_link'; if (stripos($q, 'GET_LOCK') !== false) return '1'; return null; }
+	public function get_var($q) { if (stripos($q, 'SHOW TABLES') !== false) return 'wp_rtnfch_payment_link'; if (stripos($q, 'GET_LOCK') !== false) return '1'; return null; }
 	public function get_row($q, $o = null) { if (preg_match('/order_id = (\d+)/', $q, $m)) { $rows = array_filter($this->rows, fn($r) => $r['order_id'] == $m[1]); if (preg_match("/uuid = '([^']*)'/", $q, $u)) $rows = array_filter($rows, fn($r) => $r['uuid'] === $u[1]); $rows = array_values($rows); return $rows ? end($rows) : null; } return null; }
 	public function insert($t, $row, $f = null) { $row['id'] = count($this->rows) + 1; $this->rows[] = $row; return 1; }
 	public function update($t, $d, $w, $f = null, $wf = null) { return 1; }
@@ -167,7 +167,7 @@ $GLOBALS['wpdb'] = new WPDB_Stub();
 function dbDelta($sql) {}
 
 require_once $GLOBALS['plugin_dir'] . '/includes/config.php';
-require_once $GLOBALS['plugin_dir'] . '/includes/nft-checkout-payment-gateway-utils.php';
+require_once $GLOBALS['plugin_dir'] . '/includes/rt-nft-checkout-payment-gateway-utils.php';
 require_once $GLOBALS['plugin_dir'] . '/includes/class-nft-checkout-payment-logger.php';
 require_once $GLOBALS['plugin_dir'] . '/includes/class-nft-checkout-payment-gateway-admin-notices.php';
 require_once $GLOBALS['plugin_dir'] . '/includes/class-nft-checkout-payment-state-engine.php';

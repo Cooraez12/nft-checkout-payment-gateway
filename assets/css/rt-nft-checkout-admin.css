@@ -1,0 +1,261 @@
+.rt-nft-checkout-accounts-container {
+	max-width: 600px;
+}
+
+.rt-nft-checkout-accounts-container .title-priority {
+	display: flex;
+}
+
+.rt-nft-checkout-accounts-container .title-priority .account-name {
+	width: 70% !important;
+}
+
+.rt-nft-checkout-accounts-container .title-priority .priority-name {
+	width: 28% !important;
+}
+
+.rt-nft-checkout-accounts-container .rotated {
+	transform: rotate(180deg);
+}
+
+.rt-nft-checkout-instructions-url,
+.rt-nft-checkout-instructions-url:hover {
+	color: #8264D7;
+}
+
+.rt-nft-checkout-accounts-container .rt-nft-checkout-account {
+	margin-bottom: 14px !important;
+	border: 1px solid #C5C5C5;
+	border-radius: 7px;
+	padding: 12px;
+}
+
+.rt-nft-checkout-accounts-container .add-blog {
+	align-items: start;
+	flex-wrap: wrap;
+	margin-bottom: 10px;
+	margin-top:10px;
+	justify-content: space-between;
+}
+
+.rt-nft-checkout-accounts-container .account-input input {
+	width: 100% !important;
+	margin-bottom: 8px !important;
+	margin-right: 8px !important;
+}
+
+.rt-nft-checkout-accounts-container h4 {
+	font-size: 17px !important;
+	margin-top: 0 !important;
+	margin-bottom: 0px !important;
+	display: flex !important;
+	align-items: center !important;
+}
+
+.rt-nft-checkout-accounts-container h4 i {
+	font-size: 13px !important;
+	margin-right: 6px !important;
+	cursor: pointer;
+}
+
+.rt-nft-checkout-accounts-container .empty-account{
+	background: #ffffff;
+	padding: 16px;
+	border-left: 3px solid #8264D7;
+	font-size: 15px !important;
+	font-weight: 400;
+	margin-bottom: 20px !important;
+}
+
+.rt-nft-checkout-accounts-container .action-button {
+	display: flex !important;
+	align-items: center !important;
+}
+
+.rt-nft-checkout-accounts-container .action-button button {
+	color: #6B6B6B;
+	font-size: 14px !important;
+	background: transparent;
+	border: none;
+	cursor: pointer;
+}
+
+.rt-nft-checkout-accounts-container .rt-nft-checkout-account .active-indicator {
+	font-size: 14px !important;
+	color: #28A745 !important;
+	background: #E7F5EB !important;
+	border-radius: 5px;
+	padding: 4px 16px;
+	width: fit-content;
+	margin-right: 8px;
+}
+
+.rt-nft-checkout-accounts-container .account-input label {
+	display: block !important;
+	margin-bottom: 5px !important;
+}
+
+.rt-nft-checkout-accounts-container .add-account-btn .rt-nft-checkout-add-account {
+	border-radius: 5px;
+	background: #0A0B21;
+	color: #F5F5F5;
+	font-size: 15px !important;
+	margin: 5px 0;
+	max-width: 204px !important;
+	width: 100%;
+	padding: 11px !important;
+	border: 1px solid #0A0B21;
+	height: 42px !important;
+	line-height: 19px !important;
+}
+
+.rt-nft-checkout-accounts-container .add-account-btn .rt-nft-checkout-add-account span {
+	font-size: 19px;
+	line-height: 12px;
+}
+
+.rt-nft-checkout-accounts-container .account-info {
+	display: none;
+	margin-top: 18px !important;
+}
+
+.rt-nft-checkout-accounts-container .account-toggle-btn {
+	color: #6B6B6B;
+	font-size: 17px !important;
+	margin-left: 8px !important;
+}
+
+.rt-nft-checkout-accounts-container .account-checkbox {
+	font-size: 14px !important;
+	display: flex !important;
+	align-items: center !important;
+	margin: 10px 0 15px !important;
+}
+
+.rt-nft-checkout-accounts-container .account-checkbox input {
+	width: 15px !important;
+	height: 15px !important;
+	margin-right: 5px !important;
+	margin-left: 0 !important;
+}
+
+.rt-nft-checkout-accounts-container .title-blog {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	word-break: break-word;
+}
+
+
+.rt-nft-checkout-accounts-container .account-status{
+	margin-top: 5px;
+}
+
+.rt-nft-checkout-accounts-container .status-label,
+.rt-nft-checkout-accounts-container .account-status-label{
+	display: inline-block;
+	padding: 3px 8px;
+	border-radius: 4px;
+	font-size: 12px;
+	font-weight: bold;
+	margin-right: 5px;
+	color: #fff;
+}
+
+/* Green only when RT has accepted the keys. */
+.status-label,
+.account-status-label {
+	background-color: #646970;
+}
+
+.rt-nft-checkout-accounts-container .status-label.active,
+.rt-nft-checkout-accounts-container .account-status-label.active{
+	background-color: #1a7f37;
+}
+
+.rt-nft-checkout-accounts-container .account-status-label.pending{
+	background-color: #9a6700;
+}
+
+.rt-nft-checkout-accounts-container .status-label.inactive,
+.rt-nft-checkout-accounts-container .status-label.invalid,
+.rt-nft-checkout-accounts-container .account-status-label.invalid,
+.rt-nft-checkout-accounts-container .account-status-label.not-connected{
+	background-color: #b32d2e;
+}
+
+.rt-nft-checkout-accounts-container .error-message,
+.rt-nft-checkout-gateway-settings-form .error-message {
+	color: #b32d2e;
+	margin-top: 4px;
+}
+
+.rt-nft-checkout-sync-account .error {
+	color: #b32d2e;
+}
+
+.rt-nft-checkout-sync-account .success {
+	color: #1a7f37;
+}
+
+@media (max-width: 600px) {
+	.rt-nft-checkout-accounts-container .title-blog,
+	.rt-nft-checkout-accounts-container .action-button {
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+	.rt-nft-checkout-accounts-container .account-input,
+	.rt-nft-checkout-accounts-container .account-input input,
+	.rt-nft-checkout-accounts-container .account-input textarea {
+		width: 100%;
+		max-width: 100%;
+		box-sizing: border-box;
+	}
+}
+
+#rt-nft-checkout-sync-status {
+	padding-right: 10px;
+}
+
+.rt-nft-checkout-sync-account {
+	justify-content: end;
+	align-items: center;
+	display: flex;
+	margin-bottom: 15px !important;
+}
+
+.rt-nft-checkout-sync-account button {
+	border: 1px solid #8264D7 !important;
+	color: #8264D7 !important;
+	background: #8264D717 !important;
+	border-radius: 4px;
+	padding: 7px 10px;
+	font-size: 14px;
+	font-weight: 500;
+	cursor: pointer;
+}
+
+.rt-nft-checkout-sync-account .success {
+	color: #28A745 !important;
+}
+
+.rt-nft-checkout-accounts-container input.error {
+	border: 1px solid #dc3545;
+	background-color: #fff0f0;
+	color: #dc3545;
+}
+
+/* BANK-1020: align saved and newly added account fields at all widths. */
+.rt-nft-checkout-accounts-container .add-blog { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin: 12px 0; }
+.rt-nft-checkout-accounts-container .add-blog > .account-input { flex: 1 1 220px; min-width: 0; }
+.rt-nft-checkout-accounts-container .title-priority .account-name,
+.rt-nft-checkout-accounts-container .title-priority .priority-name { width: auto !important; }
+.rt-nft-checkout-accounts-container .title-priority .account-name { flex: 2 1 260px; }
+.rt-nft-checkout-accounts-container .title-priority .priority-name { flex: 1 1 170px; }
+.rt-nft-checkout-accounts-container .account-input label { display: block; margin-bottom: 6px; }
+.rt-nft-checkout-accounts-container .account-input input,
+.rt-nft-checkout-accounts-container .account-input textarea { box-sizing: border-box; max-width: 100%; margin: 0 !important; }
+.rt-nft-checkout-accounts-container .secret-key-wrapper { position: relative; display: flex; align-items: center; width: 100%; }
+.rt-nft-checkout-accounts-container .secret-key-wrapper > input { min-width: 0; padding-right: 44px !important; }
+.rt-nft-checkout-accounts-container .toggle-secret-visibility { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #555; cursor: pointer; }
+.rt-nft-checkout-accounts-container .toggle-secret-visibility:focus-visible { outline: 2px solid #2271b1; outline-offset: 2px; }

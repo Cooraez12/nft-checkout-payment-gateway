@@ -4,11 +4,11 @@ if (!defined('ABSPATH')) {
 }
 
 require_once plugin_dir_path(__FILE__) . 'config.php';
-require_once plugin_dir_path(__FILE__) . 'nft-checkout-payment-gateway-utils.php';
+require_once plugin_dir_path(__FILE__) . 'rt-nft-checkout-payment-gateway-utils.php';
 require_once plugin_dir_path(__FILE__) . 'class-nft-checkout-payment-state-engine.php';
 
 /**
- * The plugin's one public endpoint: /wp-json/nft-checkout/v1/data.
+ * The plugin's one public endpoint: /wp-json/rt-nft-checkout/v1/data.
  *
  * GET  - the customer's browser coming back from RT. It may only confirm the
  *        payment with RT (a signed, merchant-bound lookup) and send the
@@ -19,7 +19,7 @@ require_once plugin_dir_path(__FILE__) . 'class-nft-checkout-payment-state-engin
  *        (NFT-02, NFT-08); the payment id, exact amount, currency and order
  *        must all match the order (NFT-02); every delivery is deduplicated.
  */
-class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
+class RTNFCH_GATEWAY_REST_API
 {
 	/** Webhook timestamps further from now than this are refused (seconds). */
 	const WEBHOOK_MAX_SKEW = 300;
@@ -48,8 +48,8 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 		add_filter('rest_pre_serve_request', function ($value, $result, $request) {
 			$route = ($request instanceof WP_REST_Request) ? (string) $request->get_route() : '';
 
-			if ($route !== '' && strpos($route, '/' . NFT_CHECKOUT_REST_NAMESPACE . '/') === 0) {
-				header('Access-Control-Allow-Origin: ' . NFT_CHECKOUT_BASE_URL);
+			if ($route !== '' && strpos($route, '/' . RTNFCH_REST_NAMESPACE . '/') === 0) {
+				header('Access-Control-Allow-Origin: ' . RTNFCH_BASE_URL);
 				header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 				header('Access-Control-Allow-Headers: Content-Type, Accept, User-Agent, X-Signature, X-Timestamp');
 
@@ -63,12 +63,12 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 		}, 15, 3);
 	}
 
-	public function nft_checkout_register_routes()
+	public function rtnfch_register_routes()
 	{
 		$register = function () {
-			register_rest_route(NFT_CHECKOUT_REST_NAMESPACE, '/data', array(
+			register_rest_route(RTNFCH_REST_NAMESPACE, '/data', array(
 				'methods'             => ['GET', 'POST'],
-				'callback'            => array($this, 'nft_checkout_handle_api_request'),
+				'callback'            => array($this, 'rtnfch_handle_api_request'),
 				'permission_callback' => '__return_true',
 			));
 		};
@@ -89,15 +89,15 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 	 *
 	 * @return true|WP_Error
 	 */
-	private function nft_checkout_verify_webhook(WP_REST_Request $request, $order)
+	private function rtnfch_verify_webhook(WP_REST_Request $request, $order)
 	{
 		if (!$order instanceof WC_Order) {
 			return new WP_Error('no_order', 'Authentication failed.');
 		}
 
-		$account = nft_checkout_get_order_account($order);
+		$account = rtnfch_get_order_account($order);
 		if ($account === null || $account['secret_key'] === '') {
-			NFT_Checkout_Payment_Gateway_Logger::warning('Webhook rejected: no configured account matches the order', ['order_id' => $order->get_id()]);
+			RTNFCH_Logger::warning('Webhook rejected: no configured account matches the order', ['order_id' => $order->get_id()]);
 			return new WP_Error('no_account', 'Authentication failed.');
 		}
 
@@ -107,32 +107,32 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 		$timestamp_header = trim((string) $request->get_header('x-timestamp'));
 
 		if ($sig_header === '' || $timestamp_header === '') {
-			NFT_Checkout_Payment_Gateway_Logger::warning('Webhook rejected: X-Signature / X-Timestamp headers required', ['order_id' => $order->get_id()]);
+			RTNFCH_Logger::warning('Webhook rejected: X-Signature / X-Timestamp headers required', ['order_id' => $order->get_id()]);
 			return new WP_Error('signature_required', 'Authentication failed.');
 		}
 
 		// X-Timestamp must be a strict unsigned digit string.
 		if (!ctype_digit($timestamp_header) || strlen($timestamp_header) > 12) {
-			NFT_Checkout_Payment_Gateway_Logger::warning('Webhook timestamp malformed', ['order_id' => $order->get_id()]);
+			RTNFCH_Logger::warning('Webhook timestamp malformed', ['order_id' => $order->get_id()]);
 			return new WP_Error('timestamp_malformed', 'Authentication failed.');
 		}
 
 		if (abs(time() - (int) $timestamp_header) > self::WEBHOOK_MAX_SKEW) {
-			NFT_Checkout_Payment_Gateway_Logger::warning('Webhook timestamp expired', ['order_id' => $order->get_id()]);
+			RTNFCH_Logger::warning('Webhook timestamp expired', ['order_id' => $order->get_id()]);
 			return new WP_Error('timestamp_expired', 'Authentication failed.');
 		}
 
 		$raw_body     = $request->get_body();
 		$expected_sig = hash_hmac('sha256', $timestamp_header . '.' . $raw_body, $secret);
 		if (!hash_equals($expected_sig, strtolower($sig_header))) {
-			NFT_Checkout_Payment_Gateway_Logger::warning('Webhook HMAC signature mismatch', ['order_id' => $order->get_id()]);
+			RTNFCH_Logger::warning('Webhook HMAC signature mismatch', ['order_id' => $order->get_id()]);
 			return new WP_Error('signature_mismatch', 'Authentication failed.');
 		}
 
 		// Replay store: the same signature is only ever accepted once.
-		$replay_key = 'rt_nft_wh_' . substr(hash('sha256', $order->get_id() . '|' . $sig_header), 0, 40);
+		$replay_key = 'rtnfch_wh_' . substr(hash('sha256', $order->get_id() . '|' . $sig_header), 0, 40);
 		if (get_transient($replay_key) !== false) {
-			NFT_Checkout_Payment_Gateway_Logger::warning('Webhook replay ignored', ['order_id' => $order->get_id()]);
+			RTNFCH_Logger::warning('Webhook replay ignored', ['order_id' => $order->get_id()]);
 			return new WP_Error('replay', 'Duplicate delivery.');
 		}
 		set_transient($replay_key, 1, self::WEBHOOK_REPLAY_TTL);
@@ -153,15 +153,15 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 	 * @param WC_Order $order
 	 * @param string   $pay_id
 	 */
-	private function nft_checkout_flag_second_payment($order, $pay_id)
+	private function rtnfch_flag_second_payment($order, $pay_id)
 	{
-		$flagged = $order->get_meta('_nft_checkout_duplicate_payments');
+		$flagged = $order->get_meta('_rtnfch_duplicate_payments');
 		$flagged = is_array($flagged) ? array_values(array_filter($flagged, 'is_string')) : [];
 		if (in_array($pay_id, $flagged, true)) {
 			return;
 		}
 		$flagged[] = $pay_id;
-		$order->update_meta_data('_nft_checkout_duplicate_payments', $flagged);
+		$order->update_meta_data('_rtnfch_duplicate_payments', $flagged);
 
 		$note = __('The customer has paid for this order twice. The order was not changed. Refund the extra payment in your RT account.', 'rt-nft-checkout');
 		$order->add_order_note($note);
@@ -181,7 +181,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 		}
 	}
 
-	public function nft_checkout_handle_api_request(WP_REST_Request $request)
+	public function rtnfch_handle_api_request(WP_REST_Request $request)
 	{
 		$method      = strtoupper((string) $request->get_method());
 		$log_context = ['source' => 'rt-nft-checkout'];
@@ -195,7 +195,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 			$provided_key = sanitize_text_field((string) ($params['key'] ?? ($params['order_key'] ?? '')));
 			$order        = ($order_id > 0) ? wc_get_order($order_id) : false;
 
-			NFT_Checkout_Payment_Gateway_Logger::info(
+			RTNFCH_Logger::info(
 				"NFT Checkout API HIT | Method: {$method} | Order #{$order_id}",
 				$log_context
 			);
@@ -209,7 +209,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 				!$order ||
 				empty($provided_key) ||
 				!hash_equals($order->get_order_key(), $provided_key) ||
-				!nft_checkout_is_gateway_order($order)
+				!rtnfch_is_gateway_order($order)
 			) {
 				return new WP_REST_Response([
 					'success' => false,
@@ -225,8 +225,8 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 			// Confirm the payment with RT (signed, bound to the order's account)
 			// while the order is still open. This is the only way a GET can move
 			// the order; the query string is not consulted.
-			if ($order->has_status(['pending', 'on-hold']) && class_exists('NFT_CHECKOUT_PAYMENT_GATEWAY_Loader')) {
-				NFT_CHECKOUT_PAYMENT_GATEWAY_Loader::get_instance()->sync_single_order_status($order);
+			if ($order->has_status(['pending', 'on-hold']) && class_exists('RTNFCH_GATEWAY_Loader')) {
+				RTNFCH_GATEWAY_Loader::get_instance()->sync_single_order_status($order);
 				$order = wc_get_order($order_id);
 			}
 
@@ -291,13 +291,13 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 		));
 		$pay_id = trim(trim($pay_id), '"\'');
 
-		NFT_Checkout_Payment_Gateway_Logger::info(
+		RTNFCH_Logger::info(
 			"NFT Checkout API HIT | Method: {$method} | Order #{$order_id} | Status: {$api_order_status} | Pay ID: {$pay_id}",
 			$log_context
 		);
 
 		$order = ($order_id > 0) ? wc_get_order($order_id) : false;
-		if ($order_id <= 0 || !$order || !nft_checkout_is_gateway_order($order)) {
+		if ($order_id <= 0 || !$order || !rtnfch_is_gateway_order($order)) {
 			return new WP_REST_Response([
 				'success'    => false,
 				'error_code' => 'INVALID_WEBHOOK_SIGNATURE',
@@ -305,14 +305,14 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 			], 401);
 		}
 
-		$verified = $this->nft_checkout_verify_webhook($request, $order);
+		$verified = $this->rtnfch_verify_webhook($request, $order);
 		if (is_wp_error($verified)) {
 			if ($verified->get_error_code() === 'replay') {
 				// Already processed once; acknowledge without acting on it.
 				return new WP_REST_Response([
 					'success' => false,
 					'message' => 'Duplicate delivery ignored.',
-					'state'   => NFT_Checkout_Payment_State_Engine::resolve_final_state($order, $api_order_status),
+					'state'   => RTNFCH_State_Engine::resolve_final_state($order, $api_order_status),
 				], 200);
 			}
 			return new WP_REST_Response([
@@ -325,11 +325,11 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 		// -------------------------
 		// 3. ONE STRICT CHECK (payment id, exact amount, currency, order, mode)
 		// -------------------------
-		$loader    = class_exists('NFT_CHECKOUT_PAYMENT_GATEWAY_Loader') ? NFT_CHECKOUT_PAYMENT_GATEWAY_Loader::get_instance() : null;
+		$loader    = class_exists('RTNFCH_GATEWAY_Loader') ? RTNFCH_GATEWAY_Loader::get_instance() : null;
 		$known_ids = $loader
-			? $loader->nft_checkout_known_order_pay_ids($order)
-			: array_values(array_filter([(string) $order->get_meta('_nft_checkout_pay_id')]));
-		$account   = nft_checkout_get_order_account($order);
+			? $loader->rtnfch_known_order_pay_ids($order)
+			: array_values(array_filter([(string) $order->get_meta('_rtnfch_pay_id')]));
+		$account   = rtnfch_get_order_account($order);
 
 		// The voucher's payment link is created when the customer opens their
 		// e-mail, so the first payment id an order learns may arrive with this
@@ -337,10 +337,10 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 		// NFT-01: when a first payment failed and the shopper was sent a new
 		// payment email, the payment that follows carries a new id. This
 		// message is signed with the order's own account secret, so it may
-		// introduce that id (see nft_checkout_may_learn_new_pay_id()).
+		// introduce that id (see rtnfch_may_learn_new_pay_id()).
 		$id_is_known = false;
 		foreach ($known_ids as $known_id) {
-			if (nft_checkout_pay_ids_match($known_id, $pay_id)) {
+			if (rtnfch_pay_ids_match($known_id, $pay_id)) {
 				$id_is_known = true;
 				break;
 			}
@@ -351,11 +351,11 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 		// be refunded, and RT is told the message was received.
 		if (
 			!$id_is_known && $pay_id !== '' && $order->is_paid() &&
-			NFT_Checkout_Payment_State_Engine::map_status($api_order_status) === 'success'
+			RTNFCH_State_Engine::map_status($api_order_status) === 'success'
 		) {
-			$second = nft_checkout_verify_payment_claim($order, $data, $pay_id, $known_ids, true, $account ? (int) $account['is_sandbox'] : null, true);
+			$second = rtnfch_verify_payment_claim($order, $data, $pay_id, $known_ids, true, $account ? (int) $account['is_sandbox'] : null, true);
 			if (!is_wp_error($second)) {
-				$this->nft_checkout_flag_second_payment($order, $pay_id);
+				$this->rtnfch_flag_second_payment($order, $pay_id);
 				return new WP_REST_Response([
 					'success'       => true,
 					'message'       => 'Second payment recorded for review.',
@@ -366,17 +366,17 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 			}
 		}
 
-		$claim = nft_checkout_verify_payment_claim(
+		$claim = rtnfch_verify_payment_claim(
 			$order,
 			$data,
 			$pay_id,
 			$known_ids,
 			true,
 			$account ? (int) $account['is_sandbox'] : null,
-			nft_checkout_may_learn_new_pay_id($order, $data)
+			rtnfch_may_learn_new_pay_id($order, $data)
 		);
 		if (is_wp_error($claim)) {
-			NFT_Checkout_Payment_Gateway_Logger::warning("Webhook refused for Order #{$order_id}: " . $claim->get_error_message(), [
+			RTNFCH_Logger::warning("Webhook refused for Order #{$order_id}: " . $claim->get_error_message(), [
 				'code'     => $claim->get_error_code(),
 				'received' => $pay_id,
 			]);
@@ -396,14 +396,14 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 		// News that an older payment link closed must not fail an order whose
 		// shopper has since been sent a newer link.
 		if (
-			in_array(NFT_Checkout_Payment_State_Engine::map_status($api_order_status), ['failed', 'cancelled', 'expired'], true) &&
-			nft_checkout_is_superseded_pay_id($order, $pay_id, $known_ids)
+			in_array(RTNFCH_State_Engine::map_status($api_order_status), ['failed', 'cancelled', 'expired'], true) &&
+			rtnfch_is_superseded_pay_id($order, $pay_id, $known_ids)
 		) {
-			NFT_Checkout_Payment_Gateway_Logger::info("Webhook for an older payment link ignored for Order #{$order_id}", $log_context);
+			RTNFCH_Logger::info("Webhook for an older payment link ignored for Order #{$order_id}", $log_context);
 			return new WP_REST_Response([
 				'success'       => false,
 				'message'       => 'Older payment link; order unchanged.',
-				'state'         => NFT_Checkout_Payment_State_Engine::resolve_final_state($order, null),
+				'state'         => RTNFCH_State_Engine::resolve_final_state($order, null),
 				'order_status'  => $order->get_status(),
 				'engine_reason' => 'superseded_link_ignored',
 			], 200);
@@ -411,7 +411,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 
 		// The claim is verified: remember the payment id (meta, history, table).
 		if ($loader) {
-			$loader->nft_checkout_remember_pay_id($order, $pay_id, [
+			$loader->rtnfch_remember_pay_id($order, $pay_id, [
 				'payment_link'   => $data['payment_link'] ?? '',
 				'customer_email' => $order->get_billing_email(),
 				'amount'         => $data['amount'] ?? $order->get_total(),
@@ -421,7 +421,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 		// -------------------------
 		// 4. ENGINE CALL
 		// -------------------------
-		$result = NFT_Checkout_Payment_State_Engine::handle_event(
+		$result = RTNFCH_State_Engine::handle_event(
 			$order_id,
 			'webhook_update',
 			[
@@ -433,7 +433,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 			]
 		);
 
-		NFT_Checkout_Payment_Gateway_Logger::info(
+		RTNFCH_Logger::info(
 			"NFT Checkout ENGINE RESULT | Order #{$order_id} | " . wp_json_encode($result),
 			$log_context
 		);
@@ -445,7 +445,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 			// NFT-03: RT is asked to send this again, so the retry must not be
 			// mistaken for a replay of a message that was already applied.
 			$sig_header = trim((string) $request->get_header('x-signature'));
-			delete_transient('rt_nft_wh_' . substr(hash('sha256', $order_id . '|' . $sig_header), 0, 40));
+			delete_transient('rtnfch_wh_' . substr(hash('sha256', $order_id . '|' . $sig_header), 0, 40));
 			return new WP_REST_Response([
 				'success' => false,
 				'message' => 'Order is currently locked, please retry.'
@@ -456,7 +456,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API
 		// 5. RESOLVE FINAL STATE
 		// -------------------------
 		$order = wc_get_order($order_id);
-		$state = NFT_Checkout_Payment_State_Engine::resolve_final_state($order, $api_order_status);
+		$state = RTNFCH_State_Engine::resolve_final_state($order, $api_order_status);
 
 		$wc_status = $order->get_status();
 		if ($wc_status === 'processing' || $wc_status === 'completed') {

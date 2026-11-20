@@ -8,13 +8,13 @@ require_once plugin_dir_path(__FILE__) . 'config.php';
  *
  * @return string|false
  */
-function nft_checkout_check_system_requirements()
+function rtnfch_check_system_requirements()
 {
-	if (version_compare(phpversion(), NFT_CHECKOUT_PAYMENT_GATEWAY_MIN_PHP_VER, '<')) {
+	if (version_compare(phpversion(), RTNFCH_GATEWAY_MIN_PHP_VER, '<')) {
 		return sprintf(
 			// translators: %1$s is the minimum required PHP version, %2$s is the current PHP version
 			__('NFT Checkout needs PHP version %1$s or newer. This site runs %2$s. Ask your web host to update PHP.', 'rt-nft-checkout'),
-			NFT_CHECKOUT_PAYMENT_GATEWAY_MIN_PHP_VER,
+			RTNFCH_GATEWAY_MIN_PHP_VER,
 			phpversion()
 		);
 	}
@@ -24,21 +24,21 @@ function nft_checkout_check_system_requirements()
 	$wc_plugin_version = defined('WC_VERSION') ? WC_VERSION : null;
 
 	// Check if the WooCommerce database version is outdated
-	if (!$wc_db_version || version_compare($wc_db_version, NFT_CHECKOUT_PAYMENT_GATEWAY_MIN_WC_VER, '<')) {
+	if (!$wc_db_version || version_compare($wc_db_version, RTNFCH_GATEWAY_MIN_WC_VER, '<')) {
 		return sprintf(
 			// translators: %1$s is the minimum required WooCommerce database version, %2$s is the current WooCommerce database version (or "undefined" if not available)
 			__('NFT Checkout needs WooCommerce database version %1$s or newer. This site has %2$s. Update WooCommerce and run its database update.', 'rt-nft-checkout'),
-			NFT_CHECKOUT_PAYMENT_GATEWAY_MIN_WC_VER,
+			RTNFCH_GATEWAY_MIN_WC_VER,
 			$wc_db_version ? $wc_db_version : __('an unknown version', 'rt-nft-checkout')
 		);
 	}
 
 	// Check if WooCommerce plugin version is outdated
-	if (!$wc_plugin_version || version_compare($wc_plugin_version, NFT_CHECKOUT_PAYMENT_GATEWAY_MIN_WC_VER, '<')) {
+	if (!$wc_plugin_version || version_compare($wc_plugin_version, RTNFCH_GATEWAY_MIN_WC_VER, '<')) {
 		return sprintf(
 			// translators: %1$s is the minimum required WooCommerce plugin version, %2$s is the current WooCommerce plugin version (or "undefined" if not available)
 			__('NFT Checkout needs WooCommerce version %1$s or newer. This site has %2$s. Update WooCommerce.', 'rt-nft-checkout'),
-			NFT_CHECKOUT_PAYMENT_GATEWAY_MIN_WC_VER,
+			RTNFCH_GATEWAY_MIN_WC_VER,
 			$wc_plugin_version ? $wc_plugin_version : __('an unknown version', 'rt-nft-checkout')
 		);
 	}
@@ -47,9 +47,9 @@ function nft_checkout_check_system_requirements()
 }
 
 
-if (!function_exists('nft_checkout_add_unique_order_note')) {
+if (!function_exists('rtnfch_add_unique_order_note')) {
 
-    function nft_checkout_add_unique_order_note($order, $key, $message)
+    function rtnfch_add_unique_order_note($order, $key, $message)
     {
         if (!$order instanceof WC_Order) {
             return false;
@@ -63,7 +63,7 @@ if (!function_exists('nft_checkout_add_unique_order_note')) {
         $plugin_prefix = '<strong>NFT Checkout</strong>';
 
         // Unique meta key per note type (scoped to plugin)
-        $meta_key = '_nft_checkout_order_note_' . sanitize_key($key);
+        $meta_key = '_rtnfch_order_note_' . sanitize_key($key);
 
         // Check if already exists
         $existing = $order->get_meta($meta_key, true);
@@ -96,9 +96,9 @@ if (!function_exists('nft_checkout_add_unique_order_note')) {
  *
  * @return string[]
  */
-function nft_checkout_gateway_ids()
+function rtnfch_gateway_ids()
 {
-	return [NFT_CHECKOUT_GATEWAY_ID, 'nft_checkout'];
+	return [RTNFCH_GATEWAY_ID, 'nft-checkout', 'nft_checkout'];
 }
 
 /**
@@ -107,12 +107,12 @@ function nft_checkout_gateway_ids()
  * @param WC_Order|mixed $order
  * @return bool
  */
-function nft_checkout_is_gateway_order($order)
+function rtnfch_is_gateway_order($order)
 {
 	if (!$order instanceof WC_Order) {
 		return false;
 	}
-	return in_array((string) $order->get_payment_method(), nft_checkout_gateway_ids(), true);
+	return in_array((string) $order->get_payment_method(), rtnfch_gateway_ids(), true);
 }
 
 /* =========================================================================
@@ -124,9 +124,9 @@ function nft_checkout_is_gateway_order($order)
  *
  * @return array
  */
-function nft_checkout_get_settings()
+function rtnfch_get_settings()
 {
-	$settings = get_option(NFT_CHECKOUT_SETTINGS_OPTION, []);
+	$settings = get_option(RTNFCH_SETTINGS_OPTION, []);
 	if (is_string($settings)) {
 		$settings = maybe_unserialize($settings);
 	}
@@ -138,9 +138,9 @@ function nft_checkout_get_settings()
  *
  * @return bool
  */
-function nft_checkout_is_sandbox()
+function rtnfch_is_sandbox()
 {
-	$settings = nft_checkout_get_settings();
+	$settings = rtnfch_get_settings();
 	return isset($settings['sandbox']) && $settings['sandbox'] === 'yes';
 }
 
@@ -150,9 +150,9 @@ function nft_checkout_is_sandbox()
  *
  * @return bool
  */
-function nft_checkout_telemetry_allowed()
+function rtnfch_telemetry_allowed()
 {
-	$settings = nft_checkout_get_settings();
+	$settings = rtnfch_get_settings();
 	return isset($settings['share_plugin_status']) && $settings['share_plugin_status'] === 'yes';
 }
 
@@ -161,9 +161,9 @@ function nft_checkout_telemetry_allowed()
  *
  * @return array[]
  */
-function nft_checkout_get_accounts()
+function rtnfch_get_accounts()
 {
-	$accounts = get_option(NFT_CHECKOUT_ACCOUNTS_OPTION, []);
+	$accounts = get_option(RTNFCH_ACCOUNTS_OPTION, []);
 	if (is_string($accounts)) {
 		$accounts = maybe_unserialize($accounts);
 	}
@@ -183,7 +183,7 @@ function nft_checkout_get_accounts()
  * @param bool  $sandbox
  * @return array ['public_key' => string, 'secret_key' => string, 'is_sandbox' => int, 'unique_id' => string, 'title' => string]
  */
-function nft_checkout_account_credentials(array $account, $sandbox)
+function rtnfch_account_credentials(array $account, $sandbox)
 {
 	return [
 		'public_key' => (string) ($sandbox ? ($account['sandbox_public_key'] ?? '') : ($account['live_public_key'] ?? '')),
@@ -202,24 +202,24 @@ function nft_checkout_account_credentials(array $account, $sandbox)
  * order cannot be verified against RT and is never marked paid.
  *
  * @param WC_Order $order
- * @return array|null See nft_checkout_account_credentials().
+ * @return array|null See rtnfch_account_credentials().
  */
-function nft_checkout_get_order_account($order)
+function rtnfch_get_order_account($order)
 {
 	if (!$order instanceof WC_Order) {
 		return null;
 	}
 
-	$order_public_key = (string) $order->get_meta('_nft_checkout_account_public_key');
-	$order_unique_id  = (string) $order->get_meta('_nft_checkout_account_unique_id');
+	$order_public_key = (string) $order->get_meta('_rtnfch_account_public_key');
+	$order_unique_id  = (string) $order->get_meta('_rtnfch_account_unique_id');
 
 	if ($order_public_key === '' && $order_unique_id === '') {
 		return null;
 	}
 
-	foreach (nft_checkout_get_accounts() as $account) {
+	foreach (rtnfch_get_accounts() as $account) {
 		foreach ([false, true] as $sandbox) {
-			$creds = nft_checkout_account_credentials($account, $sandbox);
+			$creds = rtnfch_account_credentials($account, $sandbox);
 			if ($creds['public_key'] === '' || $creds['secret_key'] === '') {
 				continue;
 			}
@@ -238,10 +238,10 @@ function nft_checkout_get_order_account($order)
 	// Older orders recorded only the account id; its key pair in the mode the
 	// order was placed in is the one.
 	if ($order_unique_id !== '') {
-		$sandbox = (bool) $order->get_meta('_is_test_order');
-		foreach (nft_checkout_get_accounts() as $account) {
+		$sandbox = (bool) $order->get_meta('_rtnfch_is_test_order');
+		foreach (rtnfch_get_accounts() as $account) {
 			if (!empty($account['unique_id']) && hash_equals((string) $account['unique_id'], $order_unique_id)) {
-				$creds = nft_checkout_account_credentials($account, $sandbox);
+				$creds = rtnfch_account_credentials($account, $sandbox);
 				if ($creds['public_key'] !== '' && $creds['secret_key'] !== '') {
 					return $creds;
 				}
@@ -258,9 +258,9 @@ function nft_checkout_get_order_account($order)
  *
  * @return bool
  */
-function nft_checkout_is_configured()
+function rtnfch_is_configured()
 {
-	foreach (nft_checkout_get_accounts() as $account) {
+	foreach (rtnfch_get_accounts() as $account) {
 		if (
 			(!empty($account['live_public_key']) && !empty($account['live_secret_key'])) ||
 			(!empty($account['sandbox_public_key']) && !empty($account['sandbox_secret_key']))
@@ -284,7 +284,7 @@ function nft_checkout_is_configured()
  *
  * @return array status => [label, help]
  */
-function nft_checkout_account_status_texts()
+function rtnfch_account_status_texts()
 {
 	return [
 		'active'        => [
@@ -321,9 +321,9 @@ function nft_checkout_account_status_texts()
  * @param bool   $is_sandbox Whether test mode is on.
  * @return array ['class' => string, 'label' => string, 'help' => string]
  */
-function nft_checkout_account_status_view($status, $is_sandbox)
+function rtnfch_account_status_view($status, $is_sandbox)
 {
-	$texts  = nft_checkout_account_status_texts();
+	$texts  = rtnfch_account_status_texts();
 	$status = strtolower(trim((string) $status));
 	if (!isset($texts[$status])) {
 		$status = 'unknown';
@@ -350,7 +350,7 @@ function nft_checkout_account_status_view($status, $is_sandbox)
  * @param string $content_type
  * @return array
  */
-function nft_checkout_signed_headers($public_key, $secret_key, $raw_body, $content_type = 'application/json')
+function rtnfch_signed_headers($public_key, $secret_key, $raw_body, $content_type = 'application/json')
 {
 	$timestamp = (string) time();
 	return [
@@ -370,7 +370,7 @@ function nft_checkout_signed_headers($public_key, $secret_key, $raw_body, $conte
  * @param string $secret_key
  * @return array ['timestamp' => string, 'signature' => string]
  */
-function nft_checkout_account_signature($public_key, $secret_key)
+function rtnfch_account_signature($public_key, $secret_key)
 {
 	$timestamp = (string) time();
 	return [
@@ -391,7 +391,7 @@ function nft_checkout_account_signature($public_key, $secret_key)
  * @param string $pay_id
  * @return string[]
  */
-function nft_checkout_pay_id_variants($pay_id)
+function rtnfch_pay_id_variants($pay_id)
 {
 	$pay_id = trim((string) $pay_id);
 	if ($pay_id === '') {
@@ -417,15 +417,15 @@ function nft_checkout_pay_id_variants($pay_id)
  * @param string $b
  * @return bool
  */
-function nft_checkout_pay_ids_match($a, $b)
+function rtnfch_pay_ids_match($a, $b)
 {
 	$a = trim((string) $a);
 	$b = trim((string) $b);
 	if ($a === '' || $b === '') {
 		return false;
 	}
-	foreach (nft_checkout_pay_id_variants($a) as $variant_a) {
-		foreach (nft_checkout_pay_id_variants($b) as $variant_b) {
+	foreach (rtnfch_pay_id_variants($a) as $variant_a) {
+		foreach (rtnfch_pay_id_variants($b) as $variant_b) {
 			if (hash_equals($variant_a, $variant_b)) {
 				return true;
 			}
@@ -440,7 +440,7 @@ function nft_checkout_pay_ids_match($a, $b)
  * @param string $state Engine state word.
  * @return string
  */
-function nft_checkout_plain_status_sentence($state)
+function rtnfch_plain_status_sentence($state)
 {
 	switch (strtolower((string) $state)) {
 		case 'success':
@@ -468,17 +468,17 @@ function nft_checkout_plain_status_sentence($state)
  * @param WC_Order $order
  * @return array[] Each: reference, voucher_id, public_key, time.
  */
-function nft_checkout_order_vouchers($order)
+function rtnfch_order_vouchers($order)
 {
 	if (!$order instanceof WC_Order) {
 		return [];
 	}
-	$history = $order->get_meta('_nft_checkout_voucher_history');
+	$history = $order->get_meta('_rtnfch_voucher_history');
 	$history = is_array($history) ? array_values(array_filter($history, 'is_array')) : [];
 
 	// Orders placed before the history existed still carry their last voucher.
-	$last_reference = (string) $order->get_meta('_nft_checkout_voucher_reference');
-	$last_id        = (string) $order->get_meta('_nft_checkout_voucher_id');
+	$last_reference = (string) $order->get_meta('_rtnfch_voucher_reference');
+	$last_id        = (string) $order->get_meta('_rtnfch_voucher_id');
 	if ($last_reference !== '' || $last_id !== '') {
 		$seen = false;
 		foreach ($history as $entry) {
@@ -506,7 +506,7 @@ function nft_checkout_order_vouchers($order)
  * @param string   $voucher_id
  * @param string   $public_key
  */
-function nft_checkout_remember_voucher($order, $reference, $voucher_id, $public_key)
+function rtnfch_remember_voucher($order, $reference, $voucher_id, $public_key)
 {
 	if (!$order instanceof WC_Order) {
 		return;
@@ -517,7 +517,7 @@ function nft_checkout_remember_voucher($order, $reference, $voucher_id, $public_
 		return;
 	}
 
-	$history = $order->get_meta('_nft_checkout_voucher_history');
+	$history = $order->get_meta('_rtnfch_voucher_history');
 	$history = is_array($history) ? array_values(array_filter($history, 'is_array')) : [];
 	foreach ($history as $entry) {
 		if (
@@ -534,8 +534,8 @@ function nft_checkout_remember_voucher($order, $reference, $voucher_id, $public_
 		'public_key' => sanitize_text_field((string) $public_key),
 		'time'       => time(),
 	];
-	$order->update_meta_data('_nft_checkout_voucher_history', array_slice($history, -20));
-	$order->update_meta_data('_nft_checkout_voucher_awaiting_pay_id', $reference !== '' ? $reference : $voucher_id);
+	$order->update_meta_data('_rtnfch_voucher_history', array_slice($history, -20));
+	$order->update_meta_data('_rtnfch_voucher_awaiting_pay_id', $reference !== '' ? $reference : $voucher_id);
 }
 
 /**
@@ -560,12 +560,12 @@ function nft_checkout_remember_voucher($order, $reference, $voucher_id, $public_
  * @param array    $data  The message.
  * @return bool
  */
-function nft_checkout_may_learn_new_pay_id($order, array $data)
+function rtnfch_may_learn_new_pay_id($order, array $data)
 {
 	if (!$order instanceof WC_Order || $order->is_paid()) {
 		return false;
 	}
-	$vouchers = nft_checkout_order_vouchers($order);
+	$vouchers = rtnfch_order_vouchers($order);
 	if (empty($vouchers)) {
 		return false;
 	}
@@ -605,14 +605,14 @@ function nft_checkout_may_learn_new_pay_id($order, array $data)
  * @param string[] $known_ids
  * @return bool
  */
-function nft_checkout_is_superseded_pay_id($order, $pay_id, array $known_ids)
+function rtnfch_is_superseded_pay_id($order, $pay_id, array $known_ids)
 {
 	if (!$order instanceof WC_Order || trim((string) $pay_id) === '') {
 		return false;
 	}
 	$known = false;
 	foreach ($known_ids as $known_id) {
-		if (nft_checkout_pay_ids_match($known_id, $pay_id)) {
+		if (rtnfch_pay_ids_match($known_id, $pay_id)) {
 			$known = true;
 			break;
 		}
@@ -621,11 +621,11 @@ function nft_checkout_is_superseded_pay_id($order, $pay_id, array $known_ids)
 		return false;
 	}
 	// A newer payment email has been sent and its payment id is not known yet.
-	if ((string) $order->get_meta('_nft_checkout_voucher_awaiting_pay_id') !== '') {
+	if ((string) $order->get_meta('_rtnfch_voucher_awaiting_pay_id') !== '') {
 		return true;
 	}
-	$latest = (string) $order->get_meta('_nft_checkout_latest_pay_id');
-	return $latest !== '' && !nft_checkout_pay_ids_match($latest, $pay_id);
+	$latest = (string) $order->get_meta('_rtnfch_latest_pay_id');
+	return $latest !== '' && !rtnfch_pay_ids_match($latest, $pay_id);
 }
 
 /* =========================================================================
@@ -639,7 +639,7 @@ function nft_checkout_is_superseded_pay_id($order, $pay_id, array $known_ids)
  * @param mixed $amount
  * @return string
  */
-function nft_checkout_format_amount($amount)
+function rtnfch_format_amount($amount)
 {
 	return number_format((float) $amount, 2, '.', '');
 }
@@ -668,59 +668,59 @@ function nft_checkout_format_amount($amount)
  *                                  source (RT's signed message, or RT's answer
  *                                  to this shop's own signed lookup) for an
  *                                  order that sent the shopper a new payment
- *                                  email: see nft_checkout_may_learn_new_pay_id().
+ *                                  email: see rtnfch_may_learn_new_pay_id().
  * @return true|WP_Error
  */
-function nft_checkout_verify_payment_claim($order, array $data, $pay_id, array $known_ids, $allow_first_id = false, $account_mode = null, $allow_new_id = false)
+function rtnfch_verify_payment_claim($order, array $data, $pay_id, array $known_ids, $allow_first_id = false, $account_mode = null, $allow_new_id = false)
 {
 	if (!$order instanceof WC_Order) {
-		return new WP_Error('nft_checkout_no_order', 'Order not found.');
+		return new WP_Error('rtnfch_no_order', 'Order not found.');
 	}
 
 	$pay_id = trim((string) $pay_id);
 	if ($pay_id === '') {
-		return new WP_Error('nft_checkout_pay_id_required', 'Payment ID required.');
+		return new WP_Error('rtnfch_pay_id_required', 'Payment ID required.');
 	}
 	$known_ids = array_values(array_filter(array_map('strval', $known_ids), 'strlen'));
 	$id_matches = false;
 	foreach ($known_ids as $known_id) {
-		if (nft_checkout_pay_ids_match($known_id, $pay_id)) {
+		if (rtnfch_pay_ids_match($known_id, $pay_id)) {
 			$id_matches = true;
 			break;
 		}
 	}
 	if (!$id_matches && !(empty($known_ids) && $allow_first_id) && !$allow_new_id) {
-		return new WP_Error('nft_checkout_pay_id_mismatch', 'Payment ID mismatch.');
+		return new WP_Error('rtnfch_pay_id_mismatch', 'Payment ID mismatch.');
 	}
 
 	$raw_amount = $data['amount'] ?? ($data['total_amount'] ?? null);
 	if ($raw_amount === null || $raw_amount === '' || is_array($raw_amount) || !is_numeric($raw_amount)) {
-		return new WP_Error('nft_checkout_amount_required', 'Amount required.');
+		return new WP_Error('rtnfch_amount_required', 'Amount required.');
 	}
-	if (nft_checkout_format_amount($raw_amount) !== nft_checkout_format_amount($order->get_total())) {
-		return new WP_Error('nft_checkout_amount_mismatch', 'Amount mismatch.');
+	if (rtnfch_format_amount($raw_amount) !== rtnfch_format_amount($order->get_total())) {
+		return new WP_Error('rtnfch_amount_mismatch', 'Amount mismatch.');
 	}
 
 	$raw_currency = $data['curr_code'] ?? ($data['currency'] ?? '');
 	if (!is_string($raw_currency) || trim($raw_currency) === '') {
-		return new WP_Error('nft_checkout_currency_required', 'Currency required.');
+		return new WP_Error('rtnfch_currency_required', 'Currency required.');
 	}
 	if (strtoupper(trim(sanitize_text_field($raw_currency))) !== strtoupper(trim((string) $order->get_currency()))) {
-		return new WP_Error('nft_checkout_currency_mismatch', 'Currency mismatch.');
+		return new WP_Error('rtnfch_currency_mismatch', 'Currency mismatch.');
 	}
 
 	$raw_order_id = $data['order_id'] ?? ($data['order_reference'] ?? ($data['meta_data']['order_id'] ?? null));
 	if ($raw_order_id === null || $raw_order_id === '' || is_array($raw_order_id) || is_bool($raw_order_id)) {
-		return new WP_Error('nft_checkout_order_required', 'Order ID required.');
+		return new WP_Error('rtnfch_order_required', 'Order ID required.');
 	}
 	if ((string) absint($raw_order_id) !== (string) $order->get_id()) {
-		return new WP_Error('nft_checkout_order_mismatch', 'Order mismatch.');
+		return new WP_Error('rtnfch_order_mismatch', 'Order mismatch.');
 	}
 
 	if ($account_mode !== null && isset($data['mode']) && is_string($data['mode']) && $data['mode'] !== '') {
 		$payload_sandbox = strtolower(trim($data['mode'])) === 'sandbox' ? 1 : 0;
 		if ($payload_sandbox !== (int) $account_mode) {
-			return new WP_Error('nft_checkout_mode_mismatch', 'Mode mismatch.');
+			return new WP_Error('rtnfch_mode_mismatch', 'Mode mismatch.');
 		}
 	}
 
@@ -736,39 +736,45 @@ function nft_checkout_verify_payment_claim($order, array $data, $pay_id, array $
  *
  * @return string
  */
-function nft_checkout_table_name()
+function rtnfch_table_name()
 {
 	global $wpdb;
-	return $wpdb->prefix . NFT_CHECKOUT_TABLE;
+	return $wpdb->prefix . RTNFCH_TABLE;
 }
 
 /**
  * Create this plugin's payment-link table (idempotent).
+ *
+ * TEXT columns get no literal default (MySQL rejects one) and the table is
+ * only remembered as present once it really exists.
+ *
+ * @return bool Whether the table exists afterwards.
  */
-function nft_checkout_create_tables()
+function rtnfch_create_tables()
 {
 	global $wpdb;
 
-	$table_name      = nft_checkout_table_name();
+	$table_name      = rtnfch_table_name();
 	$charset_collate = $wpdb->get_charset_collate();
 
 	$sql = "CREATE TABLE $table_name (
-		id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-		order_id bigint(20) unsigned NOT NULL,
-		uuid varchar(255) NOT NULL DEFAULT '',
-		payment_link text DEFAULT '',
-		customer_email varchar(191) DEFAULT '',
-		amount varchar(50) DEFAULT '0.00',
-		created_at datetime DEFAULT CURRENT_TIMESTAMP,
-		PRIMARY KEY  (id),
-		KEY order_id (order_id),
-		KEY uuid (uuid(191))
-	) $charset_collate;";
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  order_id bigint(20) unsigned NOT NULL,
+  uuid varchar(191) NOT NULL DEFAULT '',
+  payment_link text NULL,
+  customer_email varchar(191) NOT NULL DEFAULT '',
+  amount varchar(50) NOT NULL DEFAULT '0.00',
+  created_at datetime NULL DEFAULT NULL,
+  PRIMARY KEY  (id),
+  KEY order_id (order_id),
+  KEY uuid (uuid)
+) $charset_collate;";
 
 	require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 	dbDelta($sql);
 
-	wp_cache_set('nft_checkout_table_exists', $table_name, 'nft_checkout_payment_gateway', HOUR_IN_SECONDS);
+	wp_cache_delete('rtnfch_table_exists', 'rtnfch_payment_gateway');
+	return rtnfch_order_payment_link_table_exists();
 }
 
 /**
@@ -777,20 +783,20 @@ function nft_checkout_create_tables()
  * @param bool $create Create it when missing.
  * @return bool
  */
-function nft_checkout_order_payment_link_table_exists($create = false)
+function rtnfch_order_payment_link_table_exists($create = false)
 {
 	global $wpdb;
 
-	$table_name = nft_checkout_table_name();
+	$table_name = rtnfch_table_name();
 
-	if (wp_cache_get('nft_checkout_table_exists', 'nft_checkout_payment_gateway') === $table_name) {
+	if (wp_cache_get('rtnfch_table_exists', 'rtnfch_payment_gateway') === $table_name) {
 		return true;
 	}
 
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	$exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table_name));
 	if ($exists === $table_name) {
-		wp_cache_set('nft_checkout_table_exists', $table_name, 'nft_checkout_payment_gateway', HOUR_IN_SECONDS);
+		wp_cache_set('rtnfch_table_exists', $table_name, 'rtnfch_payment_gateway', HOUR_IN_SECONDS);
 		return true;
 	}
 
@@ -798,8 +804,7 @@ function nft_checkout_order_payment_link_table_exists($create = false)
 		return false;
 	}
 
-	nft_checkout_create_tables();
-	return true;
+	return rtnfch_create_tables();
 }
 
 /**
@@ -808,17 +813,17 @@ function nft_checkout_order_payment_link_table_exists($create = false)
  * @param int $order_id
  * @return array|null
  */
-function nft_checkout_get_order_payment_link($order_id)
+function rtnfch_get_order_payment_link($order_id)
 {
 	global $wpdb;
 
 	$order_id = absint($order_id);
-	if ($order_id <= 0 || !nft_checkout_order_payment_link_table_exists()) {
+	if ($order_id <= 0 || !rtnfch_order_payment_link_table_exists()) {
 		return null;
 	}
 
-	$cache_key   = 'nft_checkout_payment_row_' . $order_id;
-	$cache_group = defined('NFT_CHECKOUT_PAYMENT_ROW_CACHE_GROUP') ? NFT_CHECKOUT_PAYMENT_ROW_CACHE_GROUP : 'nft_checkout_payment_gateway';
+	$cache_key   = 'rtnfch_payment_row_' . $order_id;
+	$cache_group = defined('RTNFCH_PAYMENT_ROW_CACHE_GROUP') ? RTNFCH_PAYMENT_ROW_CACHE_GROUP : 'rtnfch_payment_gateway';
 	$cached      = wp_cache_get($cache_key, $cache_group);
 	if (is_array($cached)) {
 		return $cached;
@@ -828,7 +833,7 @@ function nft_checkout_get_order_payment_link($order_id)
 	$row = $wpdb->get_row(
 		$wpdb->prepare(
 			'SELECT * FROM %i WHERE order_id = %d ORDER BY id DESC LIMIT 1',
-			nft_checkout_table_name(),
+			rtnfch_table_name(),
 			$order_id
 		),
 		ARRAY_A
@@ -851,7 +856,7 @@ function nft_checkout_get_order_payment_link($order_id)
  * @param array    $data  uuid, payment_link, customer_email, amount.
  * @return bool
  */
-function nft_checkout_store_order_payment_link($order, $data = [])
+function rtnfch_store_order_payment_link($order, $data = [])
 {
 	global $wpdb;
 
@@ -866,18 +871,18 @@ function nft_checkout_store_order_payment_link($order, $data = [])
 		return false;
 	}
 
-	if (!nft_checkout_order_payment_link_table_exists(true)) {
+	if (!rtnfch_order_payment_link_table_exists(true)) {
 		return false;
 	}
 
-	$table_name = nft_checkout_table_name();
+	$table_name = rtnfch_table_name();
 
 	$payment_link   = esc_url_raw(is_scalar($data['payment_link'] ?? null) ? (string) $data['payment_link'] : '');
 	$customer_email = sanitize_email(is_scalar($data['customer_email'] ?? null) ? (string) $data['customer_email'] : '');
 	if ($customer_email === '') {
 		$customer_email = sanitize_email($order->get_billing_email());
 	}
-	$amount = nft_checkout_format_amount(isset($data['amount']) && is_numeric($data['amount']) ? $data['amount'] : $order->get_total());
+	$amount = rtnfch_format_amount(isset($data['amount']) && is_numeric($data['amount']) ? $data['amount'] : $order->get_total());
 
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 	$existing = $wpdb->get_row(
@@ -890,7 +895,7 @@ function nft_checkout_store_order_payment_link($order, $data = [])
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
 			$wpdb->update($table_name, ['payment_link' => $payment_link], ['id' => (int) $existing['id']], ['%s'], ['%d']);
 		}
-		wp_cache_delete('nft_checkout_payment_row_' . $order_id, defined('NFT_CHECKOUT_PAYMENT_ROW_CACHE_GROUP') ? NFT_CHECKOUT_PAYMENT_ROW_CACHE_GROUP : 'nft_checkout_payment_gateway');
+		wp_cache_delete('rtnfch_payment_row_' . $order_id, defined('RTNFCH_PAYMENT_ROW_CACHE_GROUP') ? RTNFCH_PAYMENT_ROW_CACHE_GROUP : 'rtnfch_payment_gateway');
 		return true;
 	}
 
@@ -908,17 +913,17 @@ function nft_checkout_store_order_payment_link($order, $data = [])
 		['%d', '%s', '%s', '%s', '%s', '%s']
 	);
 
-	wp_cache_delete('nft_checkout_payment_row_' . $order_id, defined('NFT_CHECKOUT_PAYMENT_ROW_CACHE_GROUP') ? NFT_CHECKOUT_PAYMENT_ROW_CACHE_GROUP : 'nft_checkout_payment_gateway');
+	wp_cache_delete('rtnfch_payment_row_' . $order_id, defined('RTNFCH_PAYMENT_ROW_CACHE_GROUP') ? RTNFCH_PAYMENT_ROW_CACHE_GROUP : 'rtnfch_payment_gateway');
 
 	if (false === $written) {
-		NFT_Checkout_Payment_Gateway_Logger::error(
+		RTNFCH_Logger::error(
 			'Failed to store NFT Checkout order payment link.',
 			['order_id' => $order_id, 'error' => $wpdb->last_error]
 		);
 		return false;
 	}
 
-	NFT_Checkout_Payment_Gateway_Logger::info(
+	RTNFCH_Logger::info(
 		'Stored NFT Checkout order payment link.',
 		['order_id' => $order_id, 'uuid' => $uuid, 'amount' => $amount]
 	);
@@ -937,7 +942,7 @@ function nft_checkout_store_order_payment_link($order, $data = [])
  *
  * @return string
  */
-function nft_checkout_rate_limit_subject()
+function rtnfch_rate_limit_subject()
 {
 	if (function_exists('WC') && WC() && WC()->session && method_exists(WC()->session, 'get_customer_id')) {
 		$customer_id = (string) WC()->session->get_customer_id();
@@ -955,7 +960,7 @@ function nft_checkout_rate_limit_subject()
  * @param string $ip
  * @return string
  */
-function nft_checkout_anonymize_ip($ip)
+function rtnfch_anonymize_ip($ip)
 {
 	if (function_exists('wp_privacy_anonymize_ip')) {
 		return wp_privacy_anonymize_ip((string) $ip);
@@ -970,15 +975,15 @@ function nft_checkout_anonymize_ip($ip)
  * @param int   $limit
  * @return string
  */
-function nft_checkout_log_excerpt($body, $limit = 200)
+function rtnfch_log_excerpt($body, $limit = 200)
 {
 	$text = is_scalar($body) ? (string) $body : wp_json_encode($body);
 	$text = preg_replace('/("?(?:secret|api_secret|secret_key|api_secret_key|token|signature)"?\s*[:=]\s*)"[^"]*"/i', '$1"[redacted]"', (string) $text);
 	return mb_substr(trim((string) $text), 0, $limit);
 }
 
-if (!function_exists('nft_checkout_mask_email')) {
-	function nft_checkout_mask_email($email) {
+if (!function_exists('rtnfch_mask_email')) {
+	function rtnfch_mask_email($email) {
 		if (empty($email) || !is_string($email) || strpos($email, '@') === false) {
 			return '';
 		}
@@ -993,7 +998,7 @@ if (!function_exists('nft_checkout_mask_email')) {
 	}
 }
 
-if (!function_exists('nft_checkout_is_card_minimum_answer')) {
+if (!function_exists('rtnfch_is_card_minimum_answer')) {
 	/**
 	 * Whether a /check-merchant-status answer is RT's "under the card minimum"
 	 * refusal (403, "Card payments start at $5.00.") rather than a refused key.
@@ -1001,10 +1006,39 @@ if (!function_exists('nft_checkout_is_card_minimum_answer')) {
 	 * @param mixed $status Decoded response.
 	 * @return bool
 	 */
-	function nft_checkout_is_card_minimum_answer($status) {
+	function rtnfch_is_card_minimum_answer($status) {
 		if (!is_array($status) || (int) ($status['code'] ?? 0) !== 403) {
 			return false;
 		}
 		return preg_match('/^Card payments start at \$[0-9][0-9,]*\.[0-9]{2}\.$/', trim((string) ($status['message'] ?? ''))) === 1;
 	}
 }
+
+/**
+ * Whether the current admin screen is one where this plugin may show a notice:
+ * its own settings section, WooCommerce order screens and, optionally, the
+ * Plugins screen.
+ *
+ * @param bool $include_plugins_screen Also allow the Plugins screen.
+ * @return bool
+ */
+function rtnfch_is_own_admin_screen($include_plugins_screen = true)
+{
+	if (!function_exists('get_current_screen')) {
+		return false;
+	}
+	$screen = get_current_screen();
+	if (!$screen) {
+		return false;
+	}
+	if ($include_plugins_screen && $screen->id === 'plugins') {
+		return true;
+	}
+	if (in_array($screen->id, ['woocommerce_page_wc-orders', 'edit-shop_order', 'shop_order'], true)) {
+		return true;
+	}
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only screen check.
+	$section = isset($_GET['section']) ? sanitize_key(wp_unslash($_GET['section'])) : '';
+	return $screen->id === 'woocommerce_page_wc-settings' && $section === RTNFCH_GATEWAY_ID;
+}
+

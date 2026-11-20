@@ -20,7 +20,7 @@
         return;
     }
 
-    const PAYMENT_METHOD = 'nft-checkout';
+    const PAYMENT_METHOD = 'rt-nft-checkout';
 
     const settings =
         (window.wc?.wcSettings?.getPaymentMethodData?.(PAYMENT_METHOD)) ||
@@ -56,8 +56,8 @@
                         type: emitResponse.responseTypes.SUCCESS,
                         meta: {
                             paymentMethodData: {
-                                nft_checkout_consent: consent ? 'on' : '',
-                                nft_checkout_nonce: settings.consent_nonce || '',
+                                rtnfch_consent: consent ? 'on' : '',
+                                rtnfch_nonce: settings.consent_nonce || '',
                             },
                         },
                     };
@@ -71,13 +71,13 @@
 
         if (description) {
             children.push(
-                createElement(RawHTML, { key: 'description', className: 'nft-checkout-description' }, description)
+                createElement(RawHTML, { key: 'description', className: 'rt-nft-checkout-description' }, description)
             );
         }
 
         if (settings.email_notice) {
             children.push(
-                createElement('p', { key: 'notice', className: 'nft-checkout-email-notice' }, settings.email_notice)
+                createElement('p', { key: 'notice', className: 'rt-nft-checkout-email-notice' }, settings.email_notice)
             );
         }
 
@@ -85,14 +85,14 @@
             children.push(
                 createElement(
                     'p',
-                    { key: 'consent', className: 'form-row form-row-wide nft-checkout-consent' },
+                    { key: 'consent', className: 'form-row form-row-wide rt-nft-checkout-consent' },
                     createElement(
                         'label',
-                        { htmlFor: 'nft_checkout_consent' },
+                        { htmlFor: 'rtnfch_consent' },
                         createElement('input', {
                             type: 'checkbox',
-                            id: 'nft_checkout_consent',
-                            name: 'nft_checkout_consent',
+                            id: 'rtnfch_consent',
+                            name: 'rtnfch_consent',
                             checked: consent,
                             onChange: function (e) {
                                 setConsent(!!e.target.checked);
@@ -114,7 +114,7 @@
 
         content: createElement(Content, {}),
 
-        edit: createElement('div', { className: 'nft-checkout-edit' }, label),
+        edit: createElement('div', { className: 'rt-nft-checkout-edit' }, label),
 
         canMakePayment: function () {
             return settings.can_pay !== false;

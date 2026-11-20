@@ -23,8 +23,8 @@ function check($name, $cond, $detail = '') { global $results; $results[] = [$nam
 function reset_world() {
 	$GLOBALS['options'] = [
 		'admin_email' => 'owner@shop.test',
-		NFT_CHECKOUT_SETTINGS_OPTION => ['enabled' => 'yes', 'sandbox' => 'no', 'order_status' => 'processing'],
-		NFT_CHECKOUT_ACCOUNTS_OPTION => [
+		RTNFCH_SETTINGS_OPTION => ['enabled' => 'yes', 'sandbox' => 'no', 'order_status' => 'processing'],
+		RTNFCH_ACCOUNTS_OPTION => [
 			['title' => 'A', 'unique_id' => 'acc_a', 'live_public_key' => PUB_LIVE, 'live_secret_key' => SEC_LIVE, 'sandbox_public_key' => PUB_SB, 'sandbox_secret_key' => SEC_SB, 'has_sandbox' => 'on', 'live_status' => 'active', 'sandbox_status' => 'active', 'priority' => 1],
 			['title' => 'B', 'unique_id' => 'acc_b', 'live_public_key' => PUB_OTHER, 'live_secret_key' => SEC_OTHER, 'has_sandbox' => 'off', 'live_status' => 'active', 'priority' => 2],
 		],
@@ -37,20 +37,20 @@ function reset_world() {
 	$GLOBALS['notices'] = [];
 	$GLOBALS['http'] = function ($url, $args) { return ['response' => ['code' => 200], 'body' => json_encode(['status' => false, 'message' => 'Transaction not found'])]; };
 	$order = new WC_Order(123);
-	$order->update_meta_data('_nft_checkout_account_public_key', PUB_LIVE);
-	$order->update_meta_data('_nft_checkout_account_unique_id', 'acc_a');
-	$order->update_meta_data('_nft_checkout_voucher_emailed_at', time());
-	$order->update_meta_data('_nft_checkout_state', 'pending');
+	$order->update_meta_data('_rtnfch_account_public_key', PUB_LIVE);
+	$order->update_meta_data('_rtnfch_account_unique_id', 'acc_a');
+	$order->update_meta_data('_rtnfch_voucher_emailed_at', time());
+	$order->update_meta_data('_rtnfch_state', 'pending');
 	$GLOBALS['orders'] = [123 => $order];
 	return $order;
 }
 
-function rest() { return NFT_CHECKOUT_PAYMENT_GATEWAY_REST_API::get_instance(); }
+function rest() { return RTNFCH_GATEWAY_REST_API::get_instance(); }
 
 function get_return($query) {
 	$r = new WP_REST_Request('GET');
 	$r->set_query_params($query);
-	try { $resp = rest()->nft_checkout_handle_api_request($r); return ['status' => $resp->get_status(), 'redirect' => null]; }
+	try { $resp = rest()->rtnfch_handle_api_request($r); return ['status' => $resp->get_status(), 'redirect' => null]; }
 	catch (RedirectException $e) { return ['status' => 302, 'redirect' => $e->url]; }
 }
 
@@ -59,7 +59,7 @@ function webhook(array $body, array $headers = [], $raw = null) {
 	$r = new WP_REST_Request('POST');
 	$r->set_body($raw);
 	foreach ($headers as $k => $v) $r->set_header($k, $v);
-	$resp = rest()->nft_checkout_handle_api_request($r);
+	$resp = rest()->rtnfch_handle_api_request($r);
 	return [$resp->get_status(), $resp->get_data()];
 }
 
@@ -76,7 +76,7 @@ foreach (['completed', 'paid', 'success'] as $status) {
 	$out = get_return(['order_id' => 123, 'key' => $order->get_order_key(), 'status' => $status, 'pay_id' => base64_encode(UUID), 'order_status' => $status]);
 	check("T1 GET status=$status leaves order pending", $order->get_status() === 'pending' && !$order->is_paid(), 'status=' . $order->get_status());
 	check("T1 GET status=$status redirects to order-received", $out['status'] === 302 && str_contains((string) $out['redirect'], 'order-received'));
-	check("T1 GET status=$status stores no browser pay_id", $order->get_meta('_nft_checkout_pay_id') === '');
+	check("T1 GET status=$status stores no browser pay_id", $order->get_meta('_rtnfch_pay_id') === '');
 }
 $order = reset_world();
 $out = get_return(['order_id' => 123, 'status' => 'completed']);
@@ -106,7 +106,7 @@ check('T4 signed with another configured account -> 401, unpaid', $code === 401 
 check('T4b signed with the sandbox secret for a live order -> 401, unpaid', $code === 401 && $order->get_status() === 'pending', "http $code");
 [$code] = webhook($good, signed_headers($raw, SEC_LIVE, (string) (time() - 3600)), $raw);
 check('T4c stale timestamp -> 401, unpaid', $code === 401 && $order->get_status() === 'pending');
-$order->update_meta_data('_nft_checkout_account_public_key', 'pk_live_UNKNOWN');
+$order->update_meta_data('_rtnfch_account_public_key', 'pk_live_UNKNOWN');
 [$code] = webhook($good, signed_headers($raw, SEC_LIVE), $raw);
 check('T4d order naming no configured account -> 401, unpaid', $code === 401 && $order->get_status() === 'pending');
 
@@ -130,7 +130,7 @@ check('T6e missing pay_id -> 400, unpaid', $code === 400 && $order->get_status()
 $b = json_encode(array_merge($good, ['mode' => 'sandbox']));
 [$code] = webhook([], signed_headers($b, SEC_LIVE), $b);
 check('T6f sandbox mode claimed for a live order -> 400, unpaid', $code === 400 && $order->get_status() === 'pending');
-$order->update_meta_data('_nft_checkout_pay_id', base64_encode('11111111-2222-4333-8444-555555555555'));
+$order->update_meta_data('_rtnfch_pay_id', base64_encode('11111111-2222-4333-8444-555555555555'));
 $b = json_encode($good);
 [$code] = webhook([], signed_headers($b, SEC_LIVE), $b);
 check('T6g pay_id differs from the one the order was issued -> 400, unpaid', $code === 400 && $order->get_status() === 'pending');
@@ -140,7 +140,7 @@ $order = reset_world();
 $raw = json_encode($good);
 [$code, $data] = webhook([], signed_headers($raw, SEC_LIVE), $raw);
 check('T7 valid signed success -> 200, order processing + paid', $code === 200 && $order->get_status() === 'processing' && $order->is_paid(), "http $code state=" . ($data['state'] ?? ''));
-check('T7 pay_id recorded from the signed webhook', nft_checkout_pay_ids_match($order->get_meta('_nft_checkout_pay_id'), UUID));
+check('T7 pay_id recorded from the signed webhook', rtnfch_pay_ids_match($order->get_meta('_rtnfch_pay_id'), UUID));
 check('T7 payment-link row written', count($GLOBALS['wpdb']->rows) === 1);
 [$code, $data] = webhook([], signed_headers($raw, SEC_LIVE), $raw);
 check('T8 exact replay -> ignored as duplicate', $code === 200 && str_contains($data['message'], 'Duplicate'), $data['message'] ?? '');
@@ -156,7 +156,7 @@ foreach (['failed', 'cancelled', 'expired'] as $down) {
 }
 $raw4 = json_encode(array_merge($good, ['order_status' => 'returned', 'return_code' => 'R01']));
 [$code, $data] = webhook([], signed_headers($raw4, SEC_LIVE), $raw4);
-check('T9b signed "returned" records a note + mail, status unchanged', $order->get_status() === 'processing' && count($GLOBALS['mails']) === 1 && $order->get_meta('_nft_checkout_payment_returned') === 'yes', "http $code");
+check('T9b signed "returned" records a note + mail, status unchanged', $order->get_status() === 'processing' && count($GLOBALS['mails']) === 1 && $order->get_meta('_rtnfch_payment_returned') === 'yes', "http $code");
 $paid_other_way = reset_world();
 $paid_other_way->update_status('completed');
 $raw5 = json_encode(array_merge($good, ['order_status' => 'failed']));
@@ -164,28 +164,28 @@ $raw5 = json_encode(array_merge($good, ['order_status' => 'failed']));
 check('T9c order completed another way is not downgraded by a webhook', $paid_other_way->get_status() === 'completed');
 
 echo "== NFT-03: status sync fails closed\n";
-$loader = NFT_CHECKOUT_PAYMENT_GATEWAY_Loader::get_instance();
-$answer = fn($over = []) => ['status' => true, 'redirect_url' => 'https://shop.test/wp-json/nft-checkout/v1/data?order_id=123', 'transaction_status' => 'paid', 'payment_status' => 'success', 'settled' => true, 'pay_id' => base64_encode(UUID), 'order_id' => '123', 'amount' => '90.00', 'curr_code' => 'USD', 'mode' => 'live'] + $over;
+$loader = RTNFCH_GATEWAY_Loader::get_instance();
+$answer = fn($over = []) => ['status' => true, 'redirect_url' => 'https://shop.test/wp-json/rt-nft-checkout/v1/data?order_id=123', 'transaction_status' => 'paid', 'payment_status' => 'success', 'settled' => true, 'pay_id' => base64_encode(UUID), 'order_id' => '123', 'amount' => '90.00', 'curr_code' => 'USD', 'mode' => 'live'] + $over;
 $sync_http = function ($url, $args) use (&$answer, &$override) { $GLOBALS['last_req'] = $args; return ['response' => ['code' => 200], 'body' => json_encode(array_merge($answer(), $override))]; };
 $GLOBALS["http"] = $sync_http;
 
 $order = reset_world(); $GLOBALS["http"] = $sync_http; $override = ['amount' => '1.00'];
 $loader->sync_single_order_status($order);
-check('T10 sync: amount mismatch -> order stays pending, mismatch note added', $order->get_status() === 'pending' && $order->get_meta('_nft_checkout_sync_mismatch_noted') === 'yes');
+check('T10 sync: amount mismatch -> order stays pending, mismatch note added', $order->get_status() === 'pending' && $order->get_meta('_rtnfch_sync_mismatch_noted') === 'yes');
 $order = reset_world(); $GLOBALS["http"] = $sync_http; $override = ['curr_code' => 'EUR'];
 $loader->sync_single_order_status($order);
 check('T10b sync: currency mismatch -> pending', $order->get_status() === 'pending');
 $order = reset_world(); $GLOBALS["http"] = $sync_http; $override = ['order_id' => '124'];
 $loader->sync_single_order_status($order);
 check('T10c sync: another order id -> pending', $order->get_status() === 'pending');
-$order = reset_world(); $GLOBALS["http"] = $sync_http; $override = ['redirect_url' => 'https://other-shop.test/wp-json/nft-checkout/v1/data?order_id=123'];
+$order = reset_world(); $GLOBALS["http"] = $sync_http; $override = ['redirect_url' => 'https://other-shop.test/wp-json/rt-nft-checkout/v1/data?order_id=123'];
 $loader->sync_single_order_status($order);
 check('T10d sync: link raised by another site -> pending', $order->get_status() === 'pending');
 $order = reset_world(); $GLOBALS["http"] = $sync_http; $override = ['mode' => 'sandbox'];
 $loader->sync_single_order_status($order);
 check('T10e sync: sandbox payment for a live order -> pending', $order->get_status() === 'pending');
 $order = reset_world(); $GLOBALS["http"] = $sync_http; $override = [];
-$order->update_meta_data('_nft_checkout_pay_id', base64_encode('11111111-2222-4333-8444-555555555555'));
+$order->update_meta_data('_rtnfch_pay_id', base64_encode('11111111-2222-4333-8444-555555555555'));
 $loader->sync_single_order_status($order);
 check('T10f sync: paid under a different pay_id than issued -> pending', $order->get_status() === 'pending');
 $order = reset_world(); $GLOBALS["http"] = $sync_http; $override = [];
@@ -195,17 +195,17 @@ $req = $GLOBALS['last_req'];
 check('T10h sync request is signed, carries no secret, goes to update-txn-status', isset($req['headers']['X-Signature'], $req['headers']['X-Timestamp']) && !str_contains($req['body'], SEC_LIVE) && str_contains($GLOBALS['http_log'][0][1], '/payment-api/update-txn-status') && hash_hmac('sha256', $req['headers']['X-Timestamp'] . '.' . $req['body'], SEC_LIVE) === $req['headers']['X-Signature']);
 check('T10i sync uses only one endpoint (no unauthenticated fallbacks)', count($GLOBALS['http_log']) === 1);
 $order = reset_world(); $GLOBALS["http"] = $sync_http; $override = [];
-$order->update_meta_data('_nft_checkout_account_public_key', '');
-$order->update_meta_data('_nft_checkout_account_unique_id', '');
+$order->update_meta_data('_rtnfch_account_public_key', '');
+$order->update_meta_data('_rtnfch_account_unique_id', '');
 $loader->sync_single_order_status($order);
 check('T10j sync: order without an account is never confirmed', $order->get_status() === 'pending' && count($GLOBALS['http_log']) === 0);
 
 echo "== NFT-04: default host\n";
-check('T11 default API base is production app.rt.app', NFT_CHECKOUT_API_BASE_URL === 'https://app.rt.app/payment-api' && NFT_CHECKOUT_BASE_URL === 'https://app.rt.app');
-check('T11b API base: dev address accepted', nft_checkout_clean_api_base('https://dev.rt.app/payment-api/') === 'https://dev.rt.app/payment-api');
-check('T11c API base: http is forced to https', nft_checkout_clean_api_base('http://dev.rt.app/payment-api') === 'https://dev.rt.app/payment-api');
-check('T11d API base: a host outside rt.app falls back to production', nft_checkout_clean_api_base('https://evil.example/payment-api') === 'https://app.rt.app/payment-api' && nft_checkout_clean_api_base('https://rt.app.evil.example') === 'https://app.rt.app/payment-api' && nft_checkout_clean_api_base('https://notrt.app/x') === 'https://app.rt.app/payment-api');
-check('T11e API base: empty falls back to production', nft_checkout_clean_api_base('') === 'https://app.rt.app/payment-api');
+check('T11 default API base is production app.rt.app', RTNFCH_API_BASE_URL === 'https://app.rt.app/payment-api' && RTNFCH_BASE_URL === 'https://app.rt.app');
+check('T11b API base: dev address accepted', rtnfch_clean_api_base('https://dev.rt.app/payment-api/') === 'https://dev.rt.app/payment-api');
+check('T11c API base: http is forced to https', rtnfch_clean_api_base('http://dev.rt.app/payment-api') === 'https://dev.rt.app/payment-api');
+check('T11d API base: a host outside rt.app falls back to production', rtnfch_clean_api_base('https://evil.example/payment-api') === 'https://app.rt.app/payment-api' && rtnfch_clean_api_base('https://rt.app.evil.example') === 'https://app.rt.app/payment-api' && rtnfch_clean_api_base('https://notrt.app/x') === 'https://app.rt.app/payment-api');
+check('T11e API base: empty falls back to production', rtnfch_clean_api_base('') === 'https://app.rt.app/payment-api');
 
 echo "== NFT-05: account sync sends no secret\n";
 reset_world(); $GLOBALS['http'] = function ($u, $a) { if (str_contains($u, 'sync-account-status')) $GLOBALS['sync_req'] = $a; return ['response' => ['code' => 200], 'body' => json_encode(['data' => [['mode' => 'live', 'public_key' => PUB_LIVE, 'status' => 'active']]])]; };
@@ -215,16 +215,16 @@ check('T12 sync-account-status body has no secret_key', !str_contains($body, 'se
 check('T12b telemetry not sent without consent', count(array_filter($GLOBALS['http_log'], fn($r) => str_contains($r[1], 'plugin/check'))) === 0);
 
 echo "== pay id helpers\n";
-check('pay ids match across base64/plain spellings', nft_checkout_pay_ids_match(UUID, base64_encode(UUID)) && nft_checkout_pay_ids_match(rtrim(base64_encode(UUID), '='), UUID) && !nft_checkout_pay_ids_match(UUID, '11111111-2222-4333-8444-555555555555'));
+check('pay ids match across base64/plain spellings', rtnfch_pay_ids_match(UUID, base64_encode(UUID)) && rtnfch_pay_ids_match(rtrim(base64_encode(UUID), '='), UUID) && !rtnfch_pay_ids_match(UUID, '11111111-2222-4333-8444-555555555555'));
 
 echo "== Retry payment (review NFT-01): fail on link A, pay on link B\n";
 const UUID_B = '7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f';
 $issue_voucher = function ($order, $reference, $voucher_id) {
 	// What the gateway records when RT confirms a payment email was sent.
-	$order->update_meta_data('_nft_checkout_voucher_reference', $reference);
-	$order->update_meta_data('_nft_checkout_voucher_id', $voucher_id);
-	nft_checkout_remember_voucher($order, $reference, $voucher_id, PUB_LIVE);
-	$order->update_meta_data('_nft_checkout_state', 'pending');
+	$order->update_meta_data('_rtnfch_voucher_reference', $reference);
+	$order->update_meta_data('_rtnfch_voucher_id', $voucher_id);
+	rtnfch_remember_voucher($order, $reference, $voucher_id, PUB_LIVE);
+	$order->update_meta_data('_rtnfch_state', 'pending');
 	if ($order->get_status() !== 'pending') { $order->update_status('pending'); }
 };
 $send = function (array $over) use ($good) { $raw = json_encode(array_merge($good, $over)); return webhook([], signed_headers($raw, SEC_LIVE), $raw); };
@@ -232,11 +232,11 @@ $send = function (array $over) use ($good) { $raw = json_encode(array_merge($goo
 $order = reset_world();
 $issue_voucher($order, '123-1', 'v_1');
 [$code] = $send(['order_status' => 'failed', 'payment_status' => 'failed']);
-check('R1 first payment fails on link A -> order failed, A remembered', $code === 200 && $order->get_status() === 'failed' && nft_checkout_pay_ids_match($order->get_meta('_nft_checkout_pay_id'), UUID), "http $code status=" . $order->get_status());
+check('R1 first payment fails on link A -> order failed, A remembered', $code === 200 && $order->get_status() === 'failed' && rtnfch_pay_ids_match($order->get_meta('_rtnfch_pay_id'), UUID), "http $code status=" . $order->get_status());
 $issue_voucher($order, '123-2', 'v_2');
 [$code, $data] = $send(['pay_id' => base64_encode(UUID_B), 'sent_at' => 'b']);
 check('R2 shopper pays on new link B -> order processing + paid', $code === 200 && $order->get_status() === 'processing' && $order->is_paid(), "http $code " . ($data['message'] ?? ''));
-check('R2 link B is now the newest known payment', nft_checkout_pay_ids_match($order->get_meta('_nft_checkout_latest_pay_id'), UUID_B) && $order->get_meta('_nft_checkout_voucher_awaiting_pay_id') === '');
+check('R2 link B is now the newest known payment', rtnfch_pay_ids_match($order->get_meta('_rtnfch_latest_pay_id'), UUID_B) && $order->get_meta('_rtnfch_voucher_awaiting_pay_id') === '');
 
 $order = reset_world();
 $issue_voucher($order, '123-1', 'v_1');
@@ -269,7 +269,7 @@ $order = reset_world(); $GLOBALS["http"] = $sync_http;
 $issue_voucher($order, '123-1', 'v_1');
 $override = ['payment_status' => 'failed', 'transaction_status' => 'failed', 'settled' => false];
 $loader->sync_single_order_status($order);
-check('R8 lookup learns link A and its failure', $order->get_status() === 'failed' && nft_checkout_pay_ids_match($order->get_meta('_nft_checkout_pay_id'), UUID));
+check('R8 lookup learns link A and its failure', $order->get_status() === 'failed' && rtnfch_pay_ids_match($order->get_meta('_rtnfch_pay_id'), UUID));
 $issue_voucher($order, '123-2', 'v_2');
 $loader->sync_single_order_status($order);
 check('R8b lookup right after the new email names no old id', !str_contains($GLOBALS['last_req']['body'], 'payment_token'), $GLOBALS['last_req']['body']);
@@ -279,11 +279,11 @@ $state = $loader->sync_single_order_status($order);
 check('R9 lookup finds link B paid -> processing + paid', $state === 'success' && $order->is_paid() && $order->get_status() === 'processing', 'state=' . var_export($state, true));
 
 echo "== Card minimum answer (QA row 35)\n";
-check('M1 403 "Card payments start at $5.00." is the minimum answer', nft_checkout_is_card_minimum_answer(['code' => 403, 'status' => 'error', 'message' => 'Card payments start at $5.00.']));
-check('M2 thousands separator accepted', nft_checkout_is_card_minimum_answer(['code' => 403, 'status' => 'error', 'message' => 'Card payments start at $1,000.00.']));
-check('M3 a refused key (401) is not the minimum answer', !nft_checkout_is_card_minimum_answer(['code' => 401, 'status' => 'error', 'message' => 'Card payments start at $5.00.']));
-check('M4 an inactive account (403, other text) is not the minimum answer', !nft_checkout_is_card_minimum_answer(['code' => 403, 'status' => 'error', 'message' => 'Your account is not active.']));
-check('M5 success and junk are not the minimum answer', !nft_checkout_is_card_minimum_answer(['code' => 200, 'status' => 'success', 'message' => 'ok']) && !nft_checkout_is_card_minimum_answer(null) && !nft_checkout_is_card_minimum_answer('x'));
+check('M1 403 "Card payments start at $5.00." is the minimum answer', rtnfch_is_card_minimum_answer(['code' => 403, 'status' => 'error', 'message' => 'Card payments start at $5.00.']));
+check('M2 thousands separator accepted', rtnfch_is_card_minimum_answer(['code' => 403, 'status' => 'error', 'message' => 'Card payments start at $1,000.00.']));
+check('M3 a refused key (401) is not the minimum answer', !rtnfch_is_card_minimum_answer(['code' => 401, 'status' => 'error', 'message' => 'Card payments start at $5.00.']));
+check('M4 an inactive account (403, other text) is not the minimum answer', !rtnfch_is_card_minimum_answer(['code' => 403, 'status' => 'error', 'message' => 'Your account is not active.']));
+check('M5 success and junk are not the minimum answer', !rtnfch_is_card_minimum_answer(['code' => 200, 'status' => 'success', 'message' => 'ok']) && !rtnfch_is_card_minimum_answer(null) && !rtnfch_is_card_minimum_answer('x'));
 
 $failed = array_filter($results, fn($r) => !$r[1]);
 echo "\n" . count($results) . " checks, " . count($failed) . " failed\n";
