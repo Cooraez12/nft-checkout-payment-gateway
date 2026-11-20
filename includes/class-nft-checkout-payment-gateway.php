@@ -928,7 +928,7 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY extends WC_Payment_Gateway_CC
 											<label><?php esc_html_e('Account name (only you see this)', 'rt-nft-checkout'); ?></label>
 											<input type="text" class="account-title" name="accounts[<?php echo esc_attr($index); ?>][title]" placeholder="<?php esc_attr_e('For example: Main account', 'rt-nft-checkout'); ?>" value="<?php echo esc_attr($account['title'] ?? ''); ?>">
 										</div>
-										<div>
+										<div hidden>
 											<input type="hidden" class="unique-id" name="accounts[<?php echo esc_attr($index); ?>][unique_id]" value="<?php echo esc_attr($unique_id); ?>" readonly>
 										</div>
 										<div class="account-input priority-name">
@@ -972,9 +972,9 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY extends WC_Payment_Gateway_CC
 												? (str_repeat('•', 8) . substr((string) $account['live_secret_key'], -4))
 												: __('Secret key', 'rt-nft-checkout');
 											?>
-											<div class="secret-key-wrapper" style="position: relative; display: flex; align-items: center;">
-												<input type="password" autocomplete="new-password" spellcheck="false" class="live-secret-key" name="accounts[<?php echo esc_attr($index); ?>][live_secret_key]" placeholder="<?php echo esc_attr($live_secret_hint); ?>" value="" data-has-existing="<?php echo $live_secret_saved ? '1' : '0'; ?>" style="padding-right: 30px;">
-												<button type="button" class="toggle-secret-visibility" style="position: absolute; right: 15px; top: calc(50% - 4px); background: none; border: none; cursor: pointer; color: #555; padding: 0; outline: none;" title="<?php esc_attr_e('Show or hide the secret key', 'rt-nft-checkout'); ?>" aria-label="<?php esc_attr_e('Show or hide the secret key', 'rt-nft-checkout'); ?>"><i class="fa fa-eye" aria-hidden="true"></i></button>
+											<div class="secret-key-wrapper">
+												<input type="password" autocomplete="new-password" spellcheck="false" class="live-secret-key" name="accounts[<?php echo esc_attr($index); ?>][live_secret_key]" placeholder="<?php echo esc_attr($live_secret_hint); ?>" value="" data-has-existing="<?php echo $live_secret_saved ? '1' : '0'; ?>">
+												<button type="button" class="toggle-secret-visibility" title="<?php esc_attr_e('Show or hide the secret key', 'rt-nft-checkout'); ?>" aria-label="<?php esc_attr_e('Show or hide the secret key', 'rt-nft-checkout'); ?>"><i class="fa fa-eye" aria-hidden="true"></i></button>
 											</div>
 										</div>
 									</div>
@@ -1008,9 +1008,9 @@ class NFT_CHECKOUT_PAYMENT_GATEWAY extends WC_Payment_Gateway_CC
 												? (str_repeat('•', 8) . substr((string) $account['sandbox_secret_key'], -4))
 												: __('Secret key', 'rt-nft-checkout');
 											?>
-											<div class="secret-key-wrapper" style="position: relative; display: flex; align-items: center;">
-												<input type="password" autocomplete="new-password" spellcheck="false" class="sandbox-secret-key" name="accounts[<?php echo esc_attr($index); ?>][sandbox_secret_key]" placeholder="<?php echo esc_attr($sandbox_secret_hint); ?>" value="" data-has-existing="<?php echo $sandbox_secret_saved ? '1' : '0'; ?>" style="padding-right: 30px;">
-												<button type="button" class="toggle-secret-visibility" style="position: absolute; right: 15px; top: calc(50% - 4px); background: none; border: none; cursor: pointer; color: #555; padding: 0; outline: none;" title="<?php esc_attr_e('Show or hide the secret key', 'rt-nft-checkout'); ?>" aria-label="<?php esc_attr_e('Show or hide the secret key', 'rt-nft-checkout'); ?>"><i class="fa fa-eye" aria-hidden="true"></i></button>
+											<div class="secret-key-wrapper">
+												<input type="password" autocomplete="new-password" spellcheck="false" class="sandbox-secret-key" name="accounts[<?php echo esc_attr($index); ?>][sandbox_secret_key]" placeholder="<?php echo esc_attr($sandbox_secret_hint); ?>" value="" data-has-existing="<?php echo $sandbox_secret_saved ? '1' : '0'; ?>">
+												<button type="button" class="toggle-secret-visibility" title="<?php esc_attr_e('Show or hide the secret key', 'rt-nft-checkout'); ?>" aria-label="<?php esc_attr_e('Show or hide the secret key', 'rt-nft-checkout'); ?>"><i class="fa fa-eye" aria-hidden="true"></i></button>
 											</div>
 											</div>
 										</div>
