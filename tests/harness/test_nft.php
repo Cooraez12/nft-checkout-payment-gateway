@@ -285,6 +285,62 @@ check('M3 a refused key (401) is not the minimum answer', !rtnfch_is_card_minimu
 check('M4 an inactive account (403, other text) is not the minimum answer', !rtnfch_is_card_minimum_answer(['code' => 403, 'status' => 'error', 'message' => 'Your account is not active.']));
 check('M5 success and junk are not the minimum answer', !rtnfch_is_card_minimum_answer(['code' => 200, 'status' => 'success', 'message' => 'ok']) && !rtnfch_is_card_minimum_answer(null) && !rtnfch_is_card_minimum_answer('x'));
 
+echo "== Order cancelled in WooCommerce -> RT is told (cancel-order-link)\n";
+// The action lives in the plugin's main file, which boots the whole plugin;
+// only the function itself is loaded here.
+preg_match('/^function rtnfch_cancel_unpaid_order_action\(.*?^}/ms', file_get_contents($GLOBALS['plugin_dir'] . '/nft-checkout-payment-gateway.php'), $cancel_src);
+eval($cancel_src[0]);
+$cancel_calls = function () { return array_values(array_filter($GLOBALS['http_log'], fn($r) => str_contains($r[1], '/cancel-order-link'))); };
+$cancel_http = function (array $answer) { return function ($url, $args) use ($answer) { return ['response' => ['code' => 200], 'body' => json_encode($answer)]; }; };
+$cancelled_ok = ['status' => true, 'updated_status' => 'canceled', 'message' => 'Order payment link has been cancelled successfully'];
+
+$order = reset_world(); $GLOBALS['http'] = $cancel_http($cancelled_ok);
+$order->update_meta_data('_rtnfch_voucher_id', 'c0ffee00-0000-4000-8000-000000000001');
+$order->update_meta_data('_rtnfch_voucher_reference', '123-1');
+$order->update_status('cancelled');
+rtnfch_cancel_unpaid_order_action(123);
+$calls = $cancel_calls(); $req = $calls[0][2] ?? ['body' => '{}', 'headers' => []]; $sent = json_decode($req['body'], true);
+check('C1 voucher never opened: RT is told, naming the voucher', count($calls) === 1 && ($sent['status'] ?? '') === 'canceled' && ($sent['order_uuid'] ?? '') === 'c0ffee00-0000-4000-8000-000000000001' && ($sent['voucher_id'] ?? '') === 'c0ffee00-0000-4000-8000-000000000001' && ($sent['voucher_reference'] ?? '') === '123-1' && ($sent['order_id'] ?? 0) === 123 && ($sent['is_sandbox'] ?? 1) === 0, $req['body']);
+check('C1b the call is signed with the order account and carries no secret', isset($req['headers']['X-Signature'], $req['headers']['X-Timestamp']) && !str_contains($req['body'], SEC_LIVE) && hash_hmac('sha256', $req['headers']['X-Timestamp'] . '.' . $req['body'], SEC_LIVE) === $req['headers']['X-Signature']);
+check('C1c the order notes that RT cancelled the link', count(array_filter($order->get_notes(), fn($n) => str_contains($n, 'cancelled in your RT account'))) === 1);
+rtnfch_cancel_unpaid_order_action(123);
+check('C1d a repeat of the hook does not call RT again', count($cancel_calls()) === 1);
+
+$order = reset_world(); $GLOBALS['http'] = $cancel_http($cancelled_ok);
+$order->update_meta_data('_rtnfch_voucher_id', 'c0ffee00-0000-4000-8000-000000000001');
+$order->update_meta_data('_rtnfch_pay_id', base64_encode(UUID));
+$order->update_status('cancelled');
+rtnfch_cancel_unpaid_order_action(123);
+$sent = json_decode($cancel_calls()[0][2]['body'] ?? '{}', true);
+check('C2 voucher opened: the payment id AND the voucher are named', ($sent['order_uuid'] ?? '') === base64_encode(UUID) && ($sent['voucher_id'] ?? '') === 'c0ffee00-0000-4000-8000-000000000001', json_encode($sent));
+
+$order = reset_world(); $GLOBALS['http'] = $cancel_http(['status' => false, 'updated_status' => 'reconciliation_required', 'message' => 'Payment has started.']);
+$order->update_meta_data('_rtnfch_pay_id', base64_encode(UUID));
+$order->update_status('cancelled');
+rtnfch_cancel_unpaid_order_action(123);
+check('C3 payment already going through: the merchant is told on the order', count(array_filter($order->get_notes(), fn($n) => str_contains($n, 'could not be stopped'))) === 1 && $order->get_meta('_rtnfch_cancelled_link_uuid') === '');
+rtnfch_cancel_unpaid_order_action(123);
+check('C3b a refused cancellation is asked again next time, noted once', count($cancel_calls()) === 2 && count(array_filter($order->get_notes(), fn($n) => str_contains($n, 'could not be stopped'))) === 1);
+
+$order = reset_world(); $GLOBALS['http'] = $cancel_http($cancelled_ok);
+$order->update_meta_data('_rtnfch_pay_id', base64_encode(UUID));
+$order->update_status('failed');
+rtnfch_cancel_unpaid_order_action(123);
+$sent = json_decode($cancel_calls()[0][2]['body'] ?? '{}', true);
+check('C4 a failed order is reported as failed, never as cancelled', ($sent['status'] ?? '') === 'failed' && count(array_filter($order->get_notes(), fn($n) => str_contains($n, 'cancelled in your RT account'))) === 0);
+
+$order = reset_world(); $GLOBALS['http'] = $cancel_http($cancelled_ok);
+$order->update_status('cancelled');
+rtnfch_cancel_unpaid_order_action(123);
+check('C5 no voucher and no payment id: nothing to cancel, RT is not called', count($cancel_calls()) === 0);
+
+$order = reset_world(); $GLOBALS['http'] = $cancel_http($cancelled_ok);
+$order->update_meta_data('_rtnfch_voucher_id', 'c0ffee00-0000-4000-8000-000000000001');
+$order->method = 'cod';
+$order->update_status('cancelled');
+rtnfch_cancel_unpaid_order_action(123);
+check('C6 another gateway\'s order is left alone', count($cancel_calls()) === 0);
+
 $failed = array_filter($results, fn($r) => !$r[1]);
 echo "\n" . count($results) . " checks, " . count($failed) . " failed\n";
 exit($failed ? 1 : 0);
