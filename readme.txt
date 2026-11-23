@@ -6,7 +6,7 @@ Tested up to: 7.1
 Requires PHP: 8.0
 WC requires at least: 6.5.4
 WC tested up to: 11.3
-Stable tag: 1.0.5
+Stable tag: 1.0.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -69,6 +69,10 @@ Yes. Turn on sandbox mode and enter the sandbox keys from your RT dashboard. No 
 
 == Changelog ==
 
+= 1.0.6 =
+* Cancelling an order in WooCommerce now cancels its card payment in your RT account too: the e-mail RT sent the customer stops working, whether or not they had opened it.
+* If the card payment is already going through when you cancel, RT keeps the payment and the order says so.
+
 = 1.0.5 =
 * All functions, classes, settings, order data and scripts now use the plugin's own "rtnfch" prefix. Existing settings, orders and payment links are moved over automatically on update.
 * Activation now only creates the plugin's table and settings. It no longer contacts RT.
@@ -79,6 +83,13 @@ Yes. Turn on sandbox mode and enter the sandbox keys from your RT dashboard. No 
 = 1.0.4 =
 * New name: RT NFT Checkout. Prepared for the WordPress.org plugin directory.
 * Licence is now GPLv2 or later.
+
+= 1.0.4 =
+* Cancelling an order in WooCommerce now cancels its card payment in your RT account too: the e-mail RT sent the customer stops working, whether or not they had opened it. Needs the RT payment service update of the same date (deployed by RT).
+* If the card payment is already going through when you cancel, RT keeps the payment and the order says so.
+
+= 1.0.4 =
+Cancelled orders now show as cancelled in RT and their payment e-mail stops working. No settings change.
 
 = 1.0.3 =
 * Explains the card minimum at checkout instead of hiding the payment method.
@@ -95,6 +106,9 @@ Yes. Turn on sandbox mode and enter the sandbox keys from your RT dashboard. No 
 * Initial release.
 
 == Upgrade Notice ==
+
+= 1.0.6 =
+Cancelled orders now show as cancelled in RT and their payment e-mail stops working. No settings change.
 
 = 1.0.5 =
 Renames the plugin's stored data to its own prefix. Settings and orders are moved automatically. Test stores that point at another RT environment should use the rtnfch_api_base filter or the RTNFCH_HOST constant.

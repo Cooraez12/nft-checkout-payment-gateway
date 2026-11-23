@@ -7,7 +7,7 @@
  * Author URI: https://rt.app/
  * Text Domain: rt-nft-checkout
  * Plugin URI: https://rt.app/rt-nft-checkout/
- * Version: 1.0.5
+ * Version: 1.0.6
  * Requires at least: 6.2
  * Requires PHP: 8.0
  * Requires Plugins: woocommerce
@@ -141,11 +141,20 @@ function rtnfch_cancel_unpaid_order_action($order_id)
 		$known = RTNFCH_GATEWAY_Loader::get_instance()->rtnfch_known_order_pay_ids($order);
 		$uuid  = (string) ($known[0] ?? '');
 	}
+
+	/*
+	 * The payment id is known only once the customer has opened the voucher
+	 * e-mail AND RT has told this shop. Until then the order is known to RT by
+	 * its voucher, so the voucher is always named too: RT cancels the voucher
+	 * (the e-mail's button stops working) and whichever payment link it is on.
+	 */
+	$voucher_id        = sanitize_text_field((string) $order->get_meta('_rtnfch_voucher_id'));
+	$voucher_reference = sanitize_text_field((string) $order->get_meta('_rtnfch_voucher_reference'));
 	if ($uuid === '') {
-		$uuid = sanitize_text_field((string) $order->get_meta('_rtnfch_voucher_id'));
+		$uuid = $voucher_id;
 	}
 	if ($uuid === '') {
-		$uuid = sanitize_text_field((string) $order->get_meta('_rtnfch_voucher_reference'));
+		$uuid = $voucher_reference;
 	}
 	if ($uuid === '') {
 		// No voucher, no link: nothing to close at RT.
@@ -172,6 +181,12 @@ function rtnfch_cancel_unpaid_order_action($order_id)
 		'status'     => $target_api_status,
 		'is_sandbox' => (int) $account['is_sandbox'],
 	];
+	if ($voucher_id !== '') {
+		$request_payload['voucher_id'] = $voucher_id;
+	}
+	if ($voucher_reference !== '') {
+		$request_payload['voucher_reference'] = $voucher_reference;
+	}
 	$json_body = wp_json_encode($request_payload);
 
 	$response = wp_remote_post(
@@ -197,9 +212,30 @@ function rtnfch_cancel_unpaid_order_action($order_id)
 	$response_code    = (int) wp_remote_retrieve_response_code($response);
 	$decoded_response = json_decode(wp_remote_retrieve_body($response), true);
 
-	if ($response_code >= 200 && $response_code < 300 && !empty($decoded_response['status'])) {
+	$api_ok         = $response_code >= 200 && $response_code < 300 && is_array($decoded_response);
+	$updated_status = $api_ok ? (string) ($decoded_response['updated_status'] ?? '') : '';
+
+	if ($api_ok && !empty($decoded_response['status'])) {
 		$order->update_meta_data('_rtnfch_cancelled_link_uuid', $sync_signature);
+		if ($target_api_status === 'canceled' && !$order->get_meta('_rtnfch_rt_cancel_noted')) {
+			$order->update_meta_data('_rtnfch_rt_cancel_noted', 'yes');
+			$order->add_order_note(
+				'<strong>NFT Checkout</strong><br><br>' .
+				esc_html__('The order was cancelled, so its card payment link was cancelled in your RT account too. The customer can no longer pay with the e-mail RT sent them.', 'rt-nft-checkout')
+			);
+		}
 		$order->save();
+	} elseif ($api_ok && $target_api_status === 'canceled' && $updated_status === 'reconciliation_required') {
+		// RT refused: the customer's card payment is already going through (or
+		// went through). The order sync will bring the result back here.
+		if (!$order->get_meta('_rtnfch_rt_cancel_refused_noted')) {
+			$order->update_meta_data('_rtnfch_rt_cancel_refused_noted', 'yes');
+			$order->add_order_note(
+				'<strong>NFT Checkout</strong><br><br>' .
+				esc_html__('This order was cancelled while the customer\'s card payment was already going through, so the payment could not be stopped. This order will be updated when RT reports the result; if the payment succeeds, refund it in your RT account.', 'rt-nft-checkout')
+			);
+			$order->save();
+		}
 	}
 
 	RTNFCH_Logger::info("Cancel/fail API response received for Order ID: {$order_id}.", [
@@ -207,6 +243,8 @@ function rtnfch_cancel_unpaid_order_action($order_id)
 		'status'        => $target_api_status,
 		'response_code' => $response_code,
 		'api_status'    => $decoded_response['status'] ?? null,
+		'updated'       => $updated_status,
+		'api_message'   => is_array($decoded_response) ? sanitize_text_field((string) ($decoded_response['message'] ?? '')) : '',
 	]);
 }
 
