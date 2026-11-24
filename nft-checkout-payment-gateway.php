@@ -6,7 +6,7 @@
  * Author: RT.app
  * Author URI: https://rt.app/
  * Text Domain: rt-nft-checkout
- * Plugin URI: https://rt.app/developers
+ * Plugin URI: https://rt.app/developers/
  * Version: 1.0.7
  * Requires at least: 6.2
  * Requires PHP: 8.0
