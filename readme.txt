@@ -6,7 +6,7 @@ Tested up to: 7.1
 Requires PHP: 8.0
 WC requires at least: 6.5.4
 WC tested up to: 11.3
-Stable tag: 1.0.6
+Stable tag: 1.0.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -69,6 +69,9 @@ Yes. Turn on sandbox mode and enter the sandbox keys from your RT dashboard. No 
 
 == Changelog ==
 
+= 1.0.7 =
+* Updated the plugin's web address in the plugin details.
+
 = 1.0.6 =
 * Cancelling an order in WooCommerce now cancels its card payment in your RT account too: the e-mail RT sent the customer stops working, whether or not they had opened it.
 * If the card payment is already going through when you cancel, RT keeps the payment and the order says so.
@@ -106,6 +109,9 @@ Cancelled orders now show as cancelled in RT and their payment e-mail stops work
 * Initial release.
 
 == Upgrade Notice ==
+
+= 1.0.7 =
+No settings change.
 
 = 1.0.6 =
 Cancelled orders now show as cancelled in RT and their payment e-mail stops working. No settings change.
