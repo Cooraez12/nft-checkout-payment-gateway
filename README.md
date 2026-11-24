@@ -11,7 +11,7 @@ Accept card payments in WooCommerce through RT's hosted checkout. When the custo
 **Requires PHP:** 8.0
 **WC requires at least:** 6.5.4
 **WC tested up to:** 11.0
-**Stable tag:** 1.0.6
+**Stable tag:** 1.0.7
 **License:** GPLv3 or later
 **License URI:** [GPLv3 License](https://www.gnu.org/licenses/gpl-3.0.html)
 
