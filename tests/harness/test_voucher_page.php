@@ -23,6 +23,9 @@ function wp_create_nonce($a) { return 'nonce'; }
 function plugins_url($p, $f) { return 'https://shop.test/' . $p; }
 function wc_price($a) { return '$' . $a; }
 function wp_kses($s, $a = []) { return $s; }
+// WordPress ships its own mb_* fallbacks; CI runs PHP without mbstring.
+if (!function_exists('mb_strlen')) { function mb_strlen($s) { return strlen((string) $s); } }
+if (!function_exists('mb_substr')) { function mb_substr($s, $start, $len = null) { return substr((string) $s, $start, $len); } }
 function add_query_arg($args, $url) { return $url . '?' . http_build_query($args); }
 require_once $GLOBALS['plugin_dir'] . '/includes/class-nft-checkout-payment-gateway.php';
 
