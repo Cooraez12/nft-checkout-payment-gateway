@@ -356,7 +356,7 @@
             return $('<div>', { 'class': 'rt-nft-checkout-order-received__link' }).append(
                 $('<p>').text("Didn't receive or prefer not to wait for the email?"),
                 $('<a>', {
-                    'class': 'button rt-nft-checkout-order-received__link-anchor rt-nft-checkout-dprv__button',
+                    'class': 'button rt-nft-checkout-dprv__button',
                     href: link,
                     target: '_blank',
                     rel: 'noopener noreferrer'
@@ -369,7 +369,8 @@
         },
 
         /**
-         * A payment link fit to show and open: https only, or nothing.
+         * A payment link fit to show and open: https on RT's own host
+         * (rtnfch_params.rt_host), or nothing. Same rule as rtnfch_voucher_link().
          */
         safeLink: function (value) {
 
@@ -379,8 +380,9 @@
 
             try {
                 const url = new URL(value);
+                const host = String(rtnfch_params.rt_host || '').toLowerCase();
 
-                return url.protocol === 'https:' ? url.href : '';
+                return url.protocol === 'https:' && host !== '' && url.hostname.toLowerCase() === host ? url.href : '';
             } catch (e) {
                 return '';
             }

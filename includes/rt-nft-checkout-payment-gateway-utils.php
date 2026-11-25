@@ -1044,16 +1044,21 @@ function rtnfch_is_own_admin_screen($include_plugins_screen = true)
 
 
 /**
- * The voucher email's own link, fit to show the customer: http(s), and a
- * /voucher/redeem/ link only when it is signed (the server refuses unsigned
- * ones with 410). Anything else is ''.
+ * The voucher email's own link, fit to show the customer: https, on RT's own
+ * host (the host of RTNFCH_API_BASE_URL), and a /voucher/redeem/ link only
+ * when it is signed (the server refuses unsigned ones with 410). Anything
+ * else is ''. assets/js/rt-nft-checkout.js safeLink() applies the same rule.
  *
  * @param string $url Link from RT's voucher answer.
  * @return string
  */
 function rtnfch_voucher_link($url)
 {
-	$url = esc_url_raw((string) $url, ['https', 'http']);
+	$url  = esc_url_raw((string) $url, ['https']);
+	$host = strtolower((string) wp_parse_url($url, PHP_URL_HOST));
+	if ($url === '' || strtolower((string) wp_parse_url($url, PHP_URL_SCHEME)) !== 'https' || $host === '' || $host !== strtolower((string) wp_parse_url(RTNFCH_API_BASE_URL, PHP_URL_HOST))) {
+		return '';
+	}
 	if (false !== strpos($url, '/voucher/redeem/') && false === strpos($url, 'signature=')) {
 		return '';
 	}

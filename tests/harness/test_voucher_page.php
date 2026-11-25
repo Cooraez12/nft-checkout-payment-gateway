@@ -39,7 +39,7 @@ class Voucher_Order extends WC_Order {
 $results = [];
 function check($name, $cond, $detail = '') { global $results; $results[] = [$name, (bool) $cond, $detail]; echo ($cond ? 'PASS ' : 'FAIL ') . $name . ($detail !== '' ? " ($detail)" : '') . "\n"; }
 
-const LINK = 'https://dev.rt.app/voucher/redeem/0b9f3c51-2f2e-4a43-9d38-5b7c1a1f0e11?signature=abc';
+const LINK = 'https://app.rt.app/voucher/redeem/0b9f3c51-2f2e-4a43-9d38-5b7c1a1f0e11?signature=abc';
 
 function world($skip) {
 	$GLOBALS['options'] = [
@@ -75,7 +75,8 @@ foreach ([
 check('V2 CLICK HERE is a real new-tab link to the email\'s own voucher link', str_contains($html, 'href="' . LINK . '" target="_blank" rel="noopener noreferrer"'));
 check('V3 merchant / email are not hard-coded', str_contains(rtnfch_voucher_notice_html('Shop B', 'b@example.test', LINK), 'associated with Shop B.') && str_contains(rtnfch_voucher_notice_html('Shop B', 'b@example.test', LINK), 'b@example.test'));
 check('V4 no link: no button', !str_contains(rtnfch_voucher_notice_html('S', 'e@x.test', ''), 'CLICK HERE'));
-check('V5 an unsigned voucher link is never shown', rtnfch_voucher_link('https://dev.rt.app/voucher/redeem/x') === '' && rtnfch_voucher_link(LINK) === LINK);
+check('V5 an unsigned voucher link is never shown', rtnfch_voucher_link('https://app.rt.app/voucher/redeem/x') === '' && rtnfch_voucher_link(LINK) === LINK);
+check('V7 only https links on RT\'s own host are shown', rtnfch_voucher_link(str_replace('https:', 'http:', LINK)) === '' && rtnfch_voucher_link(str_replace('app.rt.app', 'evil.test', LINK)) === '' && rtnfch_voucher_link(str_replace('app.rt.app', 'app.rt.app.evil.test', LINK)) === '' && rtnfch_voucher_link('javascript:alert(1)') === '');
 check('V6 a script in the shop name is escaped', !str_contains(rtnfch_voucher_notice_html('<script>x</script>', 'e@x.test', LINK), '<script>'));
 
 // Setting: default off (voucher page), on sends the shopper straight to the voucher link.
@@ -115,7 +116,7 @@ $order = world('no');
 (new RTNFCH_GATEWAY())->process_payment(123);
 $order->total = '120.00';
 (new RTNFCH_GATEWAY())->process_payment(123);
-check('R4 changed total: a new voucher with a new reference', $refs() === ['123-1', '123-2'] && $order->get_meta('_rtnfch_voucher_total') === '120.00 USD', implode(',', $refs()));
+check('R4 changed total: a new voucher with a new reference', $refs() === ['123-1', '123-2'] && $order->get_meta('_rtnfch_voucher_total') === '120.00 USD test1291@yopmail.com', implode(',', $refs()));
 
 $order = world('no');
 (new RTNFCH_GATEWAY())->process_payment(123);
@@ -128,6 +129,23 @@ $order->update_meta_data('_rtnfch_voucher_reference', '123-1');
 $order->update_meta_data('_rtnfch_voucher_purchase_url', LINK);
 (new RTNFCH_GATEWAY())->process_payment(123);
 check('R6 voucher from before 1.0.8 (no total saved): a new one, as before', $refs() === ['123-2'], implode(',', $refs()));
+
+$order = world('no');
+(new RTNFCH_GATEWAY())->process_payment(123);
+$order->email = 'Fixed.Typo@Example.test';
+(new RTNFCH_GATEWAY())->process_payment(123);
+$to = json_decode(end($GLOBALS['http_log'])[2]['body'] ?? '{}', true)['email'] ?? '';
+check('R8 email corrected, same total: a new voucher to the new address', $refs() === ['123-1', '123-2'] && $to === 'Fixed.Typo@Example.test', implode(',', $refs()) . ' ' . $to);
+$order->email = 'fixed.typo@example.test';
+(new RTNFCH_GATEWAY())->process_payment(123);
+check('R8b same email in another case: reused', $refs() === ['123-1', '123-2']);
+
+// RT voucher links have no deadline (backend purchase_url()), so age alone never forces a new one.
+$order = world('no');
+(new RTNFCH_GATEWAY())->process_payment(123);
+$order->update_meta_data('_rtnfch_voucher_emailed_at', time() - 60 * DAY_IN_SECONDS);
+(new RTNFCH_GATEWAY())->process_payment(123);
+check('R9 a 60-day-old voucher is still reused (RT links do not expire)', $refs() === ['123-1']);
 
 // Double click: the second request arrives while the first is still running.
 $order = world('no');

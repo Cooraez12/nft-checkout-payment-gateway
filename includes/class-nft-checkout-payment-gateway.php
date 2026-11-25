@@ -1717,6 +1717,10 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 		$reference = (string) $order->get_meta('_rtnfch_voucher_reference', true);
 		$link      = rtnfch_voucher_link($order->get_meta('_rtnfch_voucher_purchase_url', true));
 
+		// No age limit: RT's voucher links are signed with no deadline and RT
+		// mints a fresh payment link behind them when the old one has expired
+		// (rt-app-payment-backend wordpress_api/vouchers.py purchase_url(),
+		// voucher_redemption.py needs_fresh_link()).
 		if ($reference === '' || $link === '' || (string) $order->get_meta('_rtnfch_voucher_total', true) !== $this->rtnfch_voucher_total($order)) {
 			return null;
 		}
@@ -1738,13 +1742,15 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 	}
 
 	/**
-	 * Order total and currency a voucher was raised for, e.g. "90.00 USD".
+	 * What a voucher was raised for: total, currency and the address it was
+	 * emailed to, e.g. "90.00 USD buyer@example.com". A corrected email or a
+	 * changed total needs a new voucher.
 	 *
 	 * @param WC_Order $order Order.
 	 * @return string
 	 */
 	private function rtnfch_voucher_total($order) {
-		return number_format((float) $order->get_total(), 2, '.', '') . ' ' . $order->get_currency();
+		return number_format((float) $order->get_total(), 2, '.', '') . ' ' . $order->get_currency() . ' ' . strtolower(trim((string) $order->get_billing_email()));
 	}
 
 	/**
@@ -2266,6 +2272,7 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 				'rtnfch_loader' => $image_url,
 				'rtnfch_nonce'  => wp_create_nonce('rtnfch_payment'),
 				'payment_method' => $this->id,
+				'rt_host'        => RTNFCH_HOST,
 			]);
 		}
 	}
