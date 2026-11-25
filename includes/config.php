@@ -80,7 +80,12 @@ if (!defined('RTNFCH_BASE_URL')) {
 }
 
 if (!defined('RTNFCH_PLUGIN_VERSION')) {
-    define('RTNFCH_PLUGIN_VERSION', '1.0.8');
+    define('RTNFCH_PLUGIN_VERSION', '1.0.9');
+}
+
+/* RT voucher links work for 30 minutes; the plugin reuses or shows one for 25. */
+if (!defined('RTNFCH_VOUCHER_REUSE_SECONDS')) {
+    define('RTNFCH_VOUCHER_REUSE_SECONDS', 25 * 60);
 }
 
 /* Gateway id. Orders placed before 1.0.2 may carry the underscore spelling. */
