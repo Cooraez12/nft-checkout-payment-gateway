@@ -46,7 +46,7 @@ function world($skip) {
 	$GLOBALS['transients'] = []; $GLOBALS['http_log'] = [];
 	$GLOBALS['http'] = function ($url, $args) {
 		if (str_contains($url, '/voucher/send')) {
-			return ['response' => ['code' => 200], 'body' => json_encode(['status' => 'success', 'message' => 'Voucher sent', 'data' => ['voucher_id' => 'v1', 'reference' => 'VX-1', 'purchase_url' => LINK, 'customer_email' => 'test1291@yopmail.com']])];
+			return ['response' => ['code' => 200], 'body' => json_encode(['status' => 'success', 'message' => 'Voucher sent', 'data' => ['voucher_id' => 'v1', 'reference' => json_decode($args['body'], true)['reference'] ?? '', 'purchase_url' => LINK, 'customer_email' => 'test1291@yopmail.com']])];
 		}
 		return ['response' => ['code' => 200], 'body' => json_encode(['status' => 'success'])];
 	};
@@ -92,7 +92,48 @@ check('S5 on: the voucher email is still asked for, once', $sends() === 1);
 check('S6 on: order stays pending with the same voucher link saved', $order->get_status() === 'pending' && $order->get_meta('_rtnfch_voucher_purchase_url') === LINK);
 check('S7 on: no extra call to RT (one voucher request, nothing else)', count($GLOBALS['http_log']) === count(array_filter($GLOBALS['http_log'], fn($c) => str_contains($c[1], '/voucher/send') || str_contains($c[1], '/dailylimit'))));
 
+// Placing the same order again (refresh, back button, second click).
+$refs = fn() => array_values(array_map(fn($c) => json_decode($c[2]['body'], true)['reference'] ?? '', array_filter($GLOBALS['http_log'], fn($c) => str_contains($c[1], '/voucher/send'))));
+$notes = fn($o) => count(array_filter($o->get_notes(), fn($n) => str_contains($n, 'RT emailed the customer')));
+
+$order = world('no');
+$first = (new RTNFCH_GATEWAY())->process_payment(123);
+$calls = count($GLOBALS['http_log']);
+$again = (new RTNFCH_GATEWAY())->process_payment(123);
+check('R1 same total again: same voucher page and link', ($again['result'] ?? '') === 'success' && ($again['data']['order_received']['purchase_url'] ?? '') === LINK && ($again['data']['order_received']['reference'] ?? '') === '123-1');
+check('R2 same total again: no call to RT, no new reference, no second email', count($GLOBALS['http_log']) === $calls && $refs() === ['123-1'] && $notes($order) === 1, implode(',', $refs()));
+
+$order = world('yes');
+(new RTNFCH_GATEWAY())->process_payment(123);
+$again = (new RTNFCH_GATEWAY())->process_payment(123);
+check('R3 skip on, same total again: straight to the same link, one voucher', ($again['redirect'] ?? '') === LINK && $refs() === ['123-1']);
+
+$order = world('no');
+(new RTNFCH_GATEWAY())->process_payment(123);
+$order->total = '120.00';
+(new RTNFCH_GATEWAY())->process_payment(123);
+check('R4 changed total: a new voucher with a new reference', $refs() === ['123-1', '123-2'] && $order->get_meta('_rtnfch_voucher_total') === '120.00 USD', implode(',', $refs()));
+
+$order = world('no');
+(new RTNFCH_GATEWAY())->process_payment(123);
+$order->update_meta_data('_rtnfch_timeline', [['type' => 'failed', 'payment_token' => 'tok1']]);
+(new RTNFCH_GATEWAY())->process_payment(123);
+check('R5 after a failed payment: a fresh voucher, as before', $refs() === ['123-1', '123-2'], implode(',', $refs()));
+
+$order = world('no');
+$order->update_meta_data('_rtnfch_voucher_reference', '123-1');
+$order->update_meta_data('_rtnfch_voucher_purchase_url', LINK);
+(new RTNFCH_GATEWAY())->process_payment(123);
+check('R6 voucher from before 1.0.8 (no total saved): a new one, as before', $refs() === ['123-2'], implode(',', $refs()));
+
+// Double click: the second request arrives while the first is still running.
+$order = world('no');
+set_transient('rtnfch_payment_active_123', ['amount' => 90.0, 'time' => time()], 60);
+$dbl = (new RTNFCH_GATEWAY())->process_payment(123);
+check('R7 double click while the first is running: no voucher request', $sends() === 0 && ($dbl['result'] ?? '') !== 'success');
+
 // Order-received page (block checkout) shows the same voucher page.
+$order = world('no'); (new RTNFCH_GATEWAY())->process_payment(123);
 ob_start(); (new RTNFCH_GATEWAY())->rtnfch_thankyou_payment_link_notice(123); $page = ob_get_clean();
 check('T1 order-received page: DPRV text, real email, CLICK HERE link', str_contains($page, 'DPRV') && str_contains($page, 'test1291@yopmail.com') && str_contains($page, 'href="' . LINK . '"'));
 

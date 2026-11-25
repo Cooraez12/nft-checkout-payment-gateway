@@ -73,6 +73,7 @@ Yes. Turn on sandbox mode and enter the sandbox keys from your RT dashboard. No 
 * A payment message from RT and a status check arriving at the same moment can no longer mark an order paid twice.
 * New wording on the page shoppers see after checkout, with a CLICK HERE button that opens the card payment straight away, without waiting for the email.
 * New setting "Skip voucher page": when on, shoppers go straight to the card payment after checkout. The email is still sent. Off by default.
+* Placing the same order again with the same total no longer sends a second payment email: the shopper sees the link already sent. A changed total still gets a new email.
 
 = 1.0.7 =
 * Updated the plugin's web address in the plugin details.

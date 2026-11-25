@@ -1229,7 +1229,14 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 				$order->update_status('pending', __('Waiting for the customer to pay with the link RT emailed them.', 'rt-nft-checkout'));
 			}
 
-			$voucher = $this->rtnfch_request_voucher_email($order);
+			// Placed again with the same total (refresh, back button, second
+			// click): the voucher RT already emailed is still good, so show it
+			// again. No new reference, no second voucher or email.
+			$voucher = $this->rtnfch_reusable_voucher($order);
+			$reused  = null !== $voucher;
+			if (!$reused) {
+				$voucher = $this->rtnfch_request_voucher_email($order);
+			}
 
 			if (!$voucher['success']) {
 				delete_transient($active_lock_key);
@@ -1254,10 +1261,12 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 			$purchase_url = rtnfch_voucher_link($voucher['data']['purchase_url'] ?? '');
 			$voucher['data']['purchase_url'] = $purchase_url;
 
-			$this->rtnfch_record_voucher_sent($order, $voucher['data']);
+			if (!$reused) {
+				$this->rtnfch_record_voucher_sent($order, $voucher['data']);
+			}
 
 			RTNFCH_Logger::info(
-				$log_prefix . ' Voucher email requested',
+				$log_prefix . ($reused ? ' Existing voucher shown again' : ' Voucher email requested'),
 				[
 					'order_id'  => $order_id,
 					'reference' => $voucher['data']['reference'] ?? null,
@@ -1695,6 +1704,50 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 	}
 
 	/**
+	 * The voucher already emailed for this order, when it can be shown again:
+	 * same total and currency, a link on file, and no failed, expired or
+	 * cancelled payment since it was sent. Otherwise null, and a new voucher
+	 * is asked for (a changed total gets a new reference; RT expires the old link).
+	 *
+	 * @param WC_Order $order Order being paid.
+	 * @return array|null Same shape as rtnfch_request_voucher_email().
+	 */
+	private function rtnfch_reusable_voucher($order) {
+
+		$reference = (string) $order->get_meta('_rtnfch_voucher_reference', true);
+		$link      = rtnfch_voucher_link($order->get_meta('_rtnfch_voucher_purchase_url', true));
+
+		if ($reference === '' || $link === '' || (string) $order->get_meta('_rtnfch_voucher_total', true) !== $this->rtnfch_voucher_total($order)) {
+			return null;
+		}
+
+		$attempt = preg_match('/-(\d+)$/', $reference, $m) ? (int) $m[1] : 1;
+		if ($this->rtnfch_failed_attempts($order) >= $attempt) {
+			return null;
+		}
+
+		return [
+			'success' => true,
+			'message' => __('We already emailed you the link to pay for this order.', 'rt-nft-checkout'),
+			'data'    => [
+				'reference'    => $reference,
+				'voucher_id'   => (string) $order->get_meta('_rtnfch_voucher_id', true),
+				'purchase_url' => $link,
+			],
+		];
+	}
+
+	/**
+	 * Order total and currency a voucher was raised for, e.g. "90.00 USD".
+	 *
+	 * @param WC_Order $order Order.
+	 * @return string
+	 */
+	private function rtnfch_voucher_total($order) {
+		return number_format((float) $order->get_total(), 2, '.', '') . ' ' . $order->get_currency();
+	}
+
+	/**
 	 * Voucher reference for the attempt about to be made.
 	 *
 	 * When retrying after a failed, expired, or cancelled payment, we ensure a new
@@ -1892,7 +1945,12 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 		$link = esc_url_raw((string) ($voucher['purchase_url'] ?? ''), ['https', 'http']);
 		if ('' !== $link) {
 			$order->update_meta_data('_rtnfch_voucher_purchase_url', $link);
+		} else {
+			$order->delete_meta_data('_rtnfch_voucher_purchase_url');
 		}
+
+		// What this voucher is for, so placing the order again can reuse it.
+		$order->update_meta_data('_rtnfch_voucher_total', $this->rtnfch_voucher_total($order));
 
 		$order->add_order_note(
 			$reference !== ''
