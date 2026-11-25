@@ -830,14 +830,6 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 				],
 			],
 
-			'skip_voucher_page' => [
-				'title'       => __('Skip voucher page', 'rt-nft-checkout'),
-				'label'       => __('Send shoppers straight to the card payment after checkout', 'rt-nft-checkout'),
-				'type'        => 'checkbox',
-				'description' => __('Off: shoppers see the voucher page with a CLICK HERE button. On: they go straight to the card payment page. The voucher email is sent either way.', 'rt-nft-checkout'),
-				'default'     => 'no',
-			],
-
 			'show_consent_checkbox' => [
 				'title'       => __('Consent tick box', 'rt-nft-checkout'),
 				'label'       => __('Ask shoppers to agree before paying', 'rt-nft-checkout'),
@@ -1301,10 +1293,10 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 			);
 			$response['redirect'] = $order->get_checkout_order_received_url();
 
-			// "Skip voucher page": straight to the voucher link the email carries.
-			// Same voucher, same order: opening it again reuses its payment link.
-			// The email is still sent (it is the same /voucher/send call).
-			if ($purchase_url !== '' && rtnfch_skip_voucher_page()) {
+			// "Skip voucher page" is RT's per-business switch, sent with the
+			// voucher (missing = show the voucher page). Straight to the voucher
+			// link the email carries; the email is still sent (same call).
+			if ($purchase_url !== '' && !empty($voucher['data']['skip_voucher_page'])) {
 				$response['redirect'] = $purchase_url;
 				unset($response['data']['order_received']);
 			}
@@ -1717,11 +1709,9 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 		$reference = (string) $order->get_meta('_rtnfch_voucher_reference', true);
 		$link      = rtnfch_voucher_link($order->get_meta('_rtnfch_voucher_purchase_url', true));
 
-		// No age limit: RT's voucher links are signed with no deadline and RT
-		// mints a fresh payment link behind them when the old one has expired
-		// (rt-app-payment-backend wordpress_api/vouchers.py purchase_url(),
-		// voucher_redemption.py needs_fresh_link()).
-		if ($reference === '' || $link === '' || (string) $order->get_meta('_rtnfch_voucher_total', true) !== $this->rtnfch_voucher_total($order)) {
+		// RT's voucher links work for 30 minutes; one older than 25 is not
+		// handed out again, and a new voucher (new reference) is asked for.
+		if ($reference === '' || $link === '' || !rtnfch_voucher_is_fresh($order) || (string) $order->get_meta('_rtnfch_voucher_total', true) !== $this->rtnfch_voucher_total($order)) {
 			return null;
 		}
 
@@ -1737,6 +1727,7 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 				'reference'    => $reference,
 				'voucher_id'   => (string) $order->get_meta('_rtnfch_voucher_id', true),
 				'purchase_url' => $link,
+				'skip_voucher_page' => $order->get_meta('_rtnfch_skip_voucher_page', true) === 'yes',
 			],
 		];
 	}
@@ -1955,6 +1946,9 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 			$order->delete_meta_data('_rtnfch_voucher_purchase_url');
 		}
 
+		// RT's per-business "skip voucher page", kept for a reuse of this voucher.
+		$order->update_meta_data('_rtnfch_skip_voucher_page', !empty($voucher['skip_voucher_page']) ? 'yes' : 'no');
+
 		// What this voucher is for, so placing the order again can reuse it.
 		$order->update_meta_data('_rtnfch_voucher_total', $this->rtnfch_voucher_total($order));
 
@@ -2012,7 +2006,8 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 		echo rtnfch_voucher_notice_html(
 			wp_specialchars_decode(get_bloginfo('name'), ENT_QUOTES),
 			$order->get_billing_email(),
-			rtnfch_voucher_link($order->get_meta('_rtnfch_voucher_purchase_url'))
+			// Never a link past its 25 minutes: the text stays, the button goes.
+			rtnfch_voucher_is_fresh($order) ? rtnfch_voucher_link($order->get_meta('_rtnfch_voucher_purchase_url')) : ''
 		);
 	}
 

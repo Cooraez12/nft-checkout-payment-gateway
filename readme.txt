@@ -6,7 +6,7 @@ Tested up to: 7.1
 Requires PHP: 8.0
 WC requires at least: 6.5.4
 WC tested up to: 11.3
-Stable tag: 1.0.8
+Stable tag: 1.0.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -69,10 +69,11 @@ Yes. Turn on sandbox mode and enter the sandbox keys from your RT dashboard. No 
 
 == Changelog ==
 
-= 1.0.8 =
+= 1.0.9 =
 * A payment message from RT and a status check arriving at the same moment can no longer mark an order paid twice.
 * New wording on the page shoppers see after checkout, with a CLICK HERE button that opens the card payment straight away, without waiting for the email.
-* New setting "Skip voucher page": when on, shoppers go straight to the card payment after checkout. The email is still sent. Off by default.
+* RT can send a shop's shoppers straight to the card payment after checkout instead of the voucher page ("Skip voucher page", set by RT for your business, off by default). The email is still sent.
+* Payment links now last 30 minutes. The plugin only shows or reuses a link for its first 25 minutes; after that, placing the order again sends a fresh one.
 * Placing the same order again with the same total and email no longer sends a second payment email: the shopper sees the link already sent. A changed total or a corrected email gets a new one.
 * The order-received page is now built by the plugin on the server and shows the shopper's payment link (the CLICK HERE button) and full email address. Only https links on RT's own address are shown.
 
@@ -117,8 +118,8 @@ Cancelled orders now show as cancelled in RT and their payment e-mail stops work
 
 == Upgrade Notice ==
 
-= 1.0.8 =
-Prevents an order being marked paid twice. New after-checkout wording and an optional "Skip voucher page" setting (off by default).
+= 1.0.9 =
+Prevents an order being marked paid twice. New after-checkout wording; payment links last 30 minutes. No settings to change.
 
 = 1.0.7 =
 No settings change.

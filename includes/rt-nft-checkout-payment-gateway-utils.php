@@ -1066,15 +1066,18 @@ function rtnfch_voucher_link($url)
 }
 
 /**
- * Whether the merchant turned on "Skip voucher page": the customer goes
- * straight to the voucher link after checkout. Off by default.
+ * Whether the voucher link saved on the order is still safe to hand out.
+ * RT's voucher links work for 30 minutes from when they were issued; the
+ * plugin stops reusing or showing one after 25, so nobody is sent to a link
+ * that expires while they pay.
  *
+ * @param WC_Order $order Order.
  * @return bool
  */
-function rtnfch_skip_voucher_page()
+function rtnfch_voucher_is_fresh($order)
 {
-	$settings = rtnfch_get_settings();
-	return ($settings['skip_voucher_page'] ?? 'no') === 'yes';
+	$sent = (int) $order->get_meta('_rtnfch_voucher_emailed_at', true);
+	return $sent > 0 && (time() - $sent) < RTNFCH_VOUCHER_REUSE_SECONDS;
 }
 
 /**

@@ -43,13 +43,19 @@ const LINK = 'https://app.rt.app/voucher/redeem/0b9f3c51-2f2e-4a43-9d38-5b7c1a1f
 
 function world($skip) {
 	$GLOBALS['options'] = [
-		RTNFCH_SETTINGS_OPTION => ['enabled' => 'yes', 'sandbox' => 'no', 'skip_voucher_page' => $skip],
+		// An old WooCommerce checkbox value must change nothing: RT decides.
+		RTNFCH_SETTINGS_OPTION => ['enabled' => 'yes', 'sandbox' => 'no', 'skip_voucher_page' => $skip === 'yes' ? 'no' : 'yes'],
 		RTNFCH_ACCOUNTS_OPTION => [['title' => 'A', 'unique_id' => 'acc_a', 'live_public_key' => 'pk_live_A', 'live_secret_key' => 'sk_live_A', 'live_status' => 'active', 'priority' => 1]],
 	];
 	$GLOBALS['transients'] = []; $GLOBALS['http_log'] = [];
-	$GLOBALS['http'] = function ($url, $args) {
+	// $skip: 'yes' / 'no' = RT's per-business flag in the voucher answer; 'missing' = no flag.
+	$GLOBALS['http'] = function ($url, $args) use ($skip) {
 		if (str_contains($url, '/voucher/send')) {
-			return ['response' => ['code' => 200], 'body' => json_encode(['status' => 'success', 'message' => 'Voucher sent', 'data' => ['voucher_id' => 'v1', 'reference' => json_decode($args['body'], true)['reference'] ?? '', 'purchase_url' => LINK, 'customer_email' => 'test1291@yopmail.com']])];
+			$data = ['voucher_id' => 'v1', 'reference' => json_decode($args['body'], true)['reference'] ?? '', 'purchase_url' => LINK, 'customer_email' => 'test1291@yopmail.com'];
+			if ($skip !== 'missing') {
+				$data['skip_voucher_page'] = $skip === 'yes';
+			}
+			return ['response' => ['code' => 200], 'body' => json_encode(['status' => 'success', 'message' => 'Voucher sent', 'data' => $data])];
 		}
 		return ['response' => ['code' => 200], 'body' => json_encode(['status' => 'success'])];
 	};
@@ -82,7 +88,11 @@ check('V6 a script in the shop name is escaped', !str_contains(rtnfch_voucher_no
 // Setting: default off (voucher page), on sends the shopper straight to the voucher link.
 $gw = new RTNFCH_GATEWAY();
 $fields = $gw->rtnfch_get_form_fields();
-check('S1 "Skip voucher page" setting exists, off by default', ($fields['skip_voucher_page']['type'] ?? '') === 'checkbox' && ($fields['skip_voucher_page']['default'] ?? '') === 'no');
+check('S1 no WooCommerce "Skip voucher page" setting: RT decides per business', !isset($fields['skip_voucher_page']));
+
+$order = world('missing');
+$res = (new RTNFCH_GATEWAY())->process_payment(123);
+check('S1b RT sends no flag: the voucher page is shown', str_contains($res['redirect'] ?? '', 'order-received') && isset($res['data']['order_received']));
 
 $order = world('no');
 $res = (new RTNFCH_GATEWAY())->process_payment(123);
@@ -140,12 +150,25 @@ $order->email = 'fixed.typo@example.test';
 (new RTNFCH_GATEWAY())->process_payment(123);
 check('R8b same email in another case: reused', $refs() === ['123-1', '123-2']);
 
-// RT voucher links have no deadline (backend purchase_url()), so age alone never forces a new one.
+// RT voucher links work for 30 minutes: the plugin reuses one only while it is under 25.
 $order = world('no');
 (new RTNFCH_GATEWAY())->process_payment(123);
-$order->update_meta_data('_rtnfch_voucher_emailed_at', time() - 60 * DAY_IN_SECONDS);
+$order->update_meta_data('_rtnfch_voucher_emailed_at', time() - 24 * 60);
+$again = (new RTNFCH_GATEWAY())->process_payment(123);
+check('R9 a 24-minute-old voucher is reused (no new voucher)', $refs() === ['123-1'] && ($again['data']['order_received']['purchase_url'] ?? '') === LINK);
+$order->update_meta_data('_rtnfch_voucher_emailed_at', time() - 26 * 60);
+$again = (new RTNFCH_GATEWAY())->process_payment(123);
+check('R10 a 26-minute-old voucher is not handed out: a new voucher with a new reference', $refs() === ['123-1', '123-2'] && ($again['data']['order_received']['reference'] ?? '') === '123-2', implode(',', $refs()));
+ob_start(); (new RTNFCH_GATEWAY())->rtnfch_thankyou_payment_link_notice(123); $fresh_page = ob_get_clean();
+$order->update_meta_data('_rtnfch_voucher_emailed_at', time() - 31 * 60);
+ob_start(); (new RTNFCH_GATEWAY())->rtnfch_thankyou_payment_link_notice(123); $old_page = ob_get_clean();
+check('R11 order-received page: CLICK HERE while fresh, never once the link is 31 minutes old', str_contains($fresh_page, 'CLICK HERE') && !str_contains($old_page, 'CLICK HERE') && str_contains($old_page, 'DPRV'));
+
+$order = world('yes');
 (new RTNFCH_GATEWAY())->process_payment(123);
-check('R9 a 60-day-old voucher is still reused (RT links do not expire)', $refs() === ['123-1']);
+$order->update_meta_data('_rtnfch_voucher_emailed_at', time() - 26 * 60);
+$again = (new RTNFCH_GATEWAY())->process_payment(123);
+check('R12 skip on, 26-minute-old voucher: straight to a NEW voucher link, never the old one', $refs() === ['123-1', '123-2'] && ($again['redirect'] ?? '') === LINK);
 
 // Double click: the second request arrives while the first is still running.
 $order = world('no');
