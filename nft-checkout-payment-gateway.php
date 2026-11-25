@@ -248,6 +248,86 @@ function rtnfch_cancel_unpaid_order_action($order_id)
 	]);
 }
 
+add_action('woocommerce_before_order_object_save', 'rtnfch_release_on_switch');
+
+/**
+ * The customer went back and chose another payment method for this order (or an
+ * admin changed it). The card payment e-mail's voucher and link are cancelled at
+ * RT first, so they cannot be paid as well. A card payment already going through
+ * cannot be stopped: the shop owner is told, and its later report only adds a
+ * note (the order is never changed by it). Runs inside the order's save: nothing
+ * here saves again.
+ *
+ * @param WC_Order $order
+ */
+function rtnfch_release_on_switch($order)
+{
+	if (!$order instanceof WC_Order || !$order->get_id()) {
+		return;
+	}
+	$changes = $order->get_changes();
+	$before  = (string) ($order->get_data()['payment_method'] ?? '');
+	if (!array_key_exists('payment_method', $changes)
+		|| !in_array($before, rtnfch_gateway_ids(), true)
+		|| in_array((string) $changes['payment_method'], rtnfch_gateway_ids(), true)
+		|| $order->is_paid()) {
+		return;
+	}
+	$voucher_id        = sanitize_text_field((string) $order->get_meta('_rtnfch_voucher_id'));
+	$voucher_reference = sanitize_text_field((string) $order->get_meta('_rtnfch_voucher_reference'));
+	$uuid              = '';
+	if (class_exists('RTNFCH_GATEWAY_Loader')) {
+		$known = RTNFCH_GATEWAY_Loader::get_instance()->rtnfch_known_order_pay_ids($order);
+		$uuid  = (string) ($known[0] ?? '');
+	}
+	$uuid = $uuid !== '' ? $uuid : ($voucher_id !== '' ? $voucher_id : $voucher_reference);
+	if ($uuid === '' || $uuid === (string) $order->get_meta('_rtnfch_released_ref')) {
+		return;
+	}
+	$account = rtnfch_get_order_account($order);
+	if (!is_array($account) || $account['secret_key'] === '') {
+		return;
+	}
+	$payload = [
+		'order_id'   => (int) $order->get_id(),
+		'order_uuid' => $uuid,
+		'status'     => 'canceled',
+		'is_sandbox' => (int) $account['is_sandbox'],
+	];
+	if ($voucher_id !== '') {
+		$payload['voucher_id'] = $voucher_id;
+	}
+	if ($voucher_reference !== '') {
+		$payload['voucher_reference'] = $voucher_reference;
+	}
+	$json_body = wp_json_encode($payload);
+	$response  = wp_remote_post(esc_url_raw(RTNFCH_API_BASE_URL . '/cancel-order-link'), [
+		'method'    => 'POST',
+		'timeout'   => 15,
+		'body'      => $json_body,
+		'headers'   => rtnfch_signed_headers($account['public_key'], $account['secret_key'], $json_body),
+		'sslverify' => true,
+	]);
+	$decoded = is_wp_error($response) ? null : json_decode((string) wp_remote_retrieve_body($response), true);
+	$code    = is_wp_error($response) ? 0 : (int) wp_remote_retrieve_response_code($response);
+	if ($code >= 200 && $code < 300 && is_array($decoded) && !empty($decoded['status'])) {
+		$order->update_meta_data('_rtnfch_released_ref', $uuid); // saved with this order save
+		$order->add_order_note(
+			'<strong>NFT Checkout</strong><br><br>' .
+			esc_html__('The customer chose another payment method, so the card payment e-mail RT sent them was cancelled. Its link no longer works.', 'rt-nft-checkout')
+		);
+		return;
+	}
+	RTNFCH_Logger::warning('Card link not cancelled after the order moved to another payment method', [
+		'order_id' => $order->get_id(),
+		'updated'  => is_array($decoded) ? sanitize_text_field((string) ($decoded['updated_status'] ?? '')) : '',
+	]);
+	$order->add_order_note(
+		'<strong>NFT Checkout</strong><br><br>' .
+		esc_html__('The customer chose another payment method, but RT could not cancel their card payment e-mail. They may already have paid; you will get a note if they did.', 'rt-nft-checkout')
+	);
+}
+
 /*
  * Test mode is shown to the merchant, but only on this plugin's settings
  * screen and WooCommerce order screens, never across the whole dashboard.

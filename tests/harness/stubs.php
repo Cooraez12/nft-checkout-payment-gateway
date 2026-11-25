@@ -140,6 +140,10 @@ class WC_Order {
 	public function get_currency() { return $this->currency; }
 	public function get_order_key() { return $this->key; }
 	public function get_payment_method() { return $this->method; }
+	// The order being saved with a new payment method (WC_Data before-save view).
+	public $changes = [];
+	public function get_changes() { return $this->changes; }
+	public function get_data() { return ['payment_method' => $this->method]; }
 	public function get_billing_email() { return $this->email; }
 	public function get_order_number() { return (string) $this->id; }
 	public function get_customer_id() { return 0; }
