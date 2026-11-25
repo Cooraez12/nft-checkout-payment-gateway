@@ -26,13 +26,6 @@
         '<path d="M5 12.5l4.5 4.5L19 7.5"></path>' +
         '</svg>';
 
-    const EXTERNAL_ICON =
-        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-        '<path d="M14 5h5v5"></path>' +
-        '<path d="M19 5l-9 9"></path>' +
-        '<path d="M18 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h4"></path>' +
-        '</svg>';
-
     const NFTCheckout = {
 
         PAYMENT_METHOD: rtnfch_params.payment_method,
@@ -287,21 +280,27 @@
                 $('<h2>', { 'class': 'rt-nft-checkout-order-received__title' })
                     .text('Order received'),
 
-                $('<p>', { 'class': 'rt-nft-checkout-order-received__lead' }).append(
-                    text('Almost done — check your email ('),
-                    $('<strong>').text(details.email || ''),
-                    text(') and open the link to pay by card. Your order is saved until you finish.')
+                // Wording kept in step with rtnfch_voucher_notice_html() (PHP).
+                $('<p>', { 'class': 'rt-nft-checkout-order-received__lead' }).text(
+                    'As part of our secure checkout process, you will receive an email with a secure link to complete this transaction via the credit/debit card Digital Payment Redemption Voucher (DPRV) process along with an NFT confirmation. The voucher link will allow you to complete payment via a credit or debit card for your order.'
                 ),
 
                 $summary,
 
-                $('<p>', { 'class': 'rt-nft-checkout-order-received__foot' }).append(
-                    text('We’ll send your receipt to '),
-                    $('<strong>').text(details.email || ''),
-                    text(' once you’ve paid.')
+                this.buildPaymentLinkSection(details),
+
+                $('<ul>', { 'class': 'rt-nft-checkout-dprv__points' }).append(
+                    $('<li>').append(
+                        $('<strong>').text('Independent voucher & payment partner'),
+                        text(' — Your voucher and payment are completed via a separate, independent processing partner. That partner is neither hosted on, embedded in, nor otherwise associated with ' + (details.site_name || 'this shop') + '.')
+                    )
                 ),
 
-                this.buildPaymentLinkSection(details)
+                $('<p>', { 'class': 'rt-nft-checkout-order-received__foot' }).append(
+                    text('No further action is needed here - check the inbox at '),
+                    $('<strong>').text(details.email || ''),
+                    text(' for the DPRV email.')
+                )
             );
 
             // Replace the checkout with the panel.
@@ -328,7 +327,7 @@
         },
 
         /* =========================================================
-         * PAYMENT LINK ("Not receiving the email?")
+         * PAYMENT LINK ("Didn't receive or prefer not to wait for the email?")
          * ========================================================= */
 
         /**
@@ -352,27 +351,26 @@
                 return document.createTextNode(value);
             };
 
-            return $('<p>', { 'class': 'rt-nft-checkout-order-received__link' }).append(
-                text('Not receiving the email? '),
+            // A real link, not window.open: the browser opens it from the
+            // click itself, so a popup blocker never stops it.
+            return $('<div>', { 'class': 'rt-nft-checkout-order-received__link' }).append(
+                $('<p>').text("Didn't receive or prefer not to wait for the email?"),
                 $('<a>', {
-                    'class': 'rt-nft-checkout-order-received__link-anchor',
+                    'class': 'button rt-nft-checkout-dprv__button',
                     href: link,
                     target: '_blank',
                     rel: 'noopener noreferrer'
                 }).append(
-                    text('Click here'),
+                    text('CLICK HERE'),
                     $('<span>', { 'class': 'rt-nft-checkout-order-received__sr-only' })
-                        .text(' (opens in a new tab)'),
-                    $('<span>', {
-                        'class': 'rt-nft-checkout-order-received__link-icon',
-                        'aria-hidden': 'true'
-                    }).html(EXTERNAL_ICON)
+                        .text(' (opens in a new tab)')
                 )
             );
         },
 
         /**
-         * A payment link fit to show and open: https only, or nothing.
+         * A payment link fit to show and open: https on RT's own host
+         * (rtnfch_params.rt_host), or nothing. Same rule as rtnfch_voucher_link().
          */
         safeLink: function (value) {
 
@@ -382,8 +380,9 @@
 
             try {
                 const url = new URL(value);
+                const host = String(rtnfch_params.rt_host || '').toLowerCase();
 
-                return url.protocol === 'https:' ? url.href : '';
+                return url.protocol === 'https:' && host !== '' && url.hostname.toLowerCase() === host ? url.href : '';
             } catch (e) {
                 return '';
             }

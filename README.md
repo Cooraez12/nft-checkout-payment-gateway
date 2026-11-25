@@ -29,7 +29,7 @@ Then paste the dev business test account's sandbox keys and press "Check with RT
 
 ## Support
 
-For any issues or enhancement requests with this plugin, contact the RT.app support team at https://rt.app/contact-us. Provide your plugin, WooCommerce and WordPress versions to expedite troubleshooting.
+For any issues or enhancement requests with this plugin, contact the RT.app support team at https://app.rt.app/contact-us. Provide your plugin, WooCommerce and WordPress versions to expedite troubleshooting.
 
 ## Getting started
 

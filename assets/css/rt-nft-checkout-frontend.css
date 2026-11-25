@@ -373,3 +373,63 @@
     color: #b42318;
     font-weight: 600;
 }
+
+/* DPRV voucher page: the CLICK HERE button, the partner note, the last line.
+   Shared by the classic panel (JS) and the order-received page (PHP). */
+.rt-nft-checkout-dprv {
+    margin: 0 0 24px;
+    padding: 18px 20px;
+    background: #f5f8fc;
+    border-left: 3px solid #2563eb;
+    border-radius: 4px;
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.rt-nft-checkout-dprv p {
+    margin: 0 0 12px;
+}
+
+.rt-nft-checkout-order-received .rt-nft-checkout-order-received__link {
+    margin: 0 0 16px;
+    font-size: 14px;
+    color: inherit;
+}
+
+.rt-nft-checkout-order-received .rt-nft-checkout-order-received__link p {
+    margin: 0 0 8px;
+}
+
+.rt-nft-checkout-order-received a.rt-nft-checkout-dprv__button,
+.rt-nft-checkout-dprv a.rt-nft-checkout-dprv__button {
+    display: inline-block;
+    box-sizing: border-box;
+    min-height: 44px;
+    padding: 11px 28px;
+    background: #2563eb;
+    color: #fff;
+    border-radius: 6px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    line-height: 22px;
+}
+
+.rt-nft-checkout-order-received a.rt-nft-checkout-dprv__button:hover,
+.rt-nft-checkout-order-received a.rt-nft-checkout-dprv__button:focus,
+.rt-nft-checkout-dprv a.rt-nft-checkout-dprv__button:hover,
+.rt-nft-checkout-dprv a.rt-nft-checkout-dprv__button:focus {
+    background: #1d4ed8;
+    color: #fff;
+}
+
+.rt-nft-checkout-dprv__points {
+    margin: 0 0 16px 1.2em;
+    padding: 0;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.rt-nft-checkout-order-received .rt-nft-checkout-dprv__points {
+    text-align: left;
+}

@@ -1042,3 +1042,74 @@ function rtnfch_is_own_admin_screen($include_plugins_screen = true)
 	return $screen->id === 'woocommerce_page_wc-settings' && $section === RTNFCH_GATEWAY_ID;
 }
 
+
+/**
+ * The voucher email's own link, fit to show the customer: https, on RT's own
+ * host (the host of RTNFCH_API_BASE_URL), and a /voucher/redeem/ link only
+ * when it is signed (the server refuses unsigned ones with 410). Anything
+ * else is ''. assets/js/rt-nft-checkout.js safeLink() applies the same rule.
+ *
+ * @param string $url Link from RT's voucher answer.
+ * @return string
+ */
+function rtnfch_voucher_link($url)
+{
+	$url  = esc_url_raw((string) $url, ['https']);
+	$host = strtolower((string) wp_parse_url($url, PHP_URL_HOST));
+	if ($url === '' || strtolower((string) wp_parse_url($url, PHP_URL_SCHEME)) !== 'https' || $host === '' || $host !== strtolower((string) wp_parse_url(RTNFCH_API_BASE_URL, PHP_URL_HOST))) {
+		return '';
+	}
+	if (false !== strpos($url, '/voucher/redeem/') && false === strpos($url, 'signature=')) {
+		return '';
+	}
+	return $url;
+}
+
+/**
+ * Whether the merchant turned on "Skip voucher page": the customer goes
+ * straight to the voucher link after checkout. Off by default.
+ *
+ * @return bool
+ */
+function rtnfch_skip_voucher_page()
+{
+	$settings = rtnfch_get_settings();
+	return ($settings['skip_voucher_page'] ?? 'no') === 'yes';
+}
+
+/**
+ * The voucher page text shown after checkout (order-received page). Every
+ * value is escaped here; the CLICK HERE button is a plain link that opens
+ * the email's own voucher link in a new tab, so no popup blocker applies.
+ *
+ * Keep the wording in step with showOrderReceived() in assets/js/rt-nft-checkout.js.
+ *
+ * @param string $merchant Shop name.
+ * @param string $email    Customer email.
+ * @param string $link     Voucher link (already passed through rtnfch_voucher_link()).
+ * @return string HTML.
+ */
+function rtnfch_voucher_notice_html($merchant, $email, $link)
+{
+	$html = '<div class="rt-nft-checkout-dprv">';
+	$html .= '<p class="rt-nft-checkout-dprv__lead">' . esc_html__('As part of our secure checkout process, you will receive an email with a secure link to complete this transaction via the credit/debit card Digital Payment Redemption Voucher (DPRV) process along with an NFT confirmation. The voucher link will allow you to complete payment via a credit or debit card for your order.', 'rt-nft-checkout') . '</p>';
+
+	if ($link !== '') {
+		$html .= '<p class="rt-nft-checkout-dprv__wait">' . esc_html__("Didn't receive or prefer not to wait for the email?", 'rt-nft-checkout') . '</p>';
+		$html .= '<p class="rt-nft-checkout-dprv__action"><a class="button rt-nft-checkout-dprv__button" href="' . esc_url($link) . '" target="_blank" rel="noopener noreferrer">' . esc_html__('CLICK HERE', 'rt-nft-checkout') . '</a></p>';
+	}
+
+	$html .= '<ul class="rt-nft-checkout-dprv__points"><li><strong>' . esc_html__('Independent voucher & payment partner', 'rt-nft-checkout') . '</strong> — ' . sprintf(
+		/* translators: %s: shop name */
+		esc_html__('Your voucher and payment are completed via a separate, independent processing partner. That partner is neither hosted on, embedded in, nor otherwise associated with %s.', 'rt-nft-checkout'),
+		esc_html($merchant)
+	) . '</li></ul>';
+
+	$html .= '<p class="rt-nft-checkout-dprv__foot">' . sprintf(
+		/* translators: %s: customer email address */
+		esc_html__('No further action is needed here - check the inbox at %s for the DPRV email.', 'rt-nft-checkout'),
+		'<strong>' . esc_html($email) . '</strong>'
+	) . '</p>';
+
+	return $html . '</div>';
+}
