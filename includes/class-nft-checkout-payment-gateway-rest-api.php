@@ -63,6 +63,47 @@ class RTNFCH_GATEWAY_REST_API
 		}, 15, 3);
 	}
 
+	/**
+	 * A signed report about an order that started with NFT Checkout and then
+	 * moved to another payment method (the customer went back and chose
+	 * another way to pay). The order is never changed by it. When RT says the
+	 * card payment went through, the shop owner gets one note so the extra
+	 * payment can be refunded; RT is told the message was received.
+	 */
+	private function rtnfch_other_method_report(WP_REST_Request $request, $order, $api_order_status, $pay_id)
+	{
+		$verified = $this->rtnfch_verify_webhook($request, $order);
+		if (is_wp_error($verified)) {
+			$replay = $verified->get_error_code() === 'replay';
+			return new WP_REST_Response([
+				'success' => false,
+				'message' => $replay ? 'Duplicate delivery ignored.' : 'Authentication failed.',
+			], $replay ? 200 : 401);
+		}
+
+		RTNFCH_Logger::warning('Webhook ignored: order #' . $order->get_id() . ' now uses another payment method', [
+			'payment_method' => $order->get_payment_method(),
+			'status'         => $api_order_status,
+			'pay_id'         => $pay_id,
+		]);
+
+		if (RTNFCH_State_Engine::map_status($api_order_status) === 'success' && !$order->get_meta('_rtnfch_other_method_paid_noted')) {
+			$order->update_meta_data('_rtnfch_other_method_paid_noted', $pay_id !== '' ? $pay_id : 'yes');
+			$order->add_order_note(
+				'<strong>NFT Checkout</strong><br><br>' .
+				esc_html__('RT says the customer also paid this order by card (NFT Checkout), but the order now uses another payment method. Nothing was changed here. If the customer paid twice, refund the card payment in your RT account.', 'rt-nft-checkout')
+			);
+			$order->save();
+		}
+
+		return new WP_REST_Response([
+			'success'       => false,
+			'message'       => 'Order now uses another payment method; unchanged.',
+			'order_status'  => $order->get_status(),
+			'engine_reason' => 'other_payment_method',
+		], 200);
+	}
+
 	public function rtnfch_register_routes()
 	{
 		$register = function () {
@@ -297,6 +338,9 @@ class RTNFCH_GATEWAY_REST_API
 		);
 
 		$order = ($order_id > 0) ? wc_get_order($order_id) : false;
+		if ($order && !rtnfch_is_gateway_order($order) && (string) $order->get_meta('_rtnfch_account_public_key') !== '') {
+			return $this->rtnfch_other_method_report($request, $order, $api_order_status, $pay_id);
+		}
 		if ($order_id <= 0 || !$order || !rtnfch_is_gateway_order($order)) {
 			return new WP_REST_Response([
 				'success'    => false,

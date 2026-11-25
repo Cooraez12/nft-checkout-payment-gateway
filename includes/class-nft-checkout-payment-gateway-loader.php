@@ -787,6 +787,14 @@ class RTNFCH_GATEWAY_Loader
 				$out['reason'] = 'claim_mismatch';
 				return $out;
 			}
+			// RT finds an order's link by order number for the whole merchant, so
+			// the same number can also have a link from another RT plugin on this
+			// shop (bank transfer). Only a link that returns to this plugin counts.
+			if (strpos($redirect_url, 'nft-checkout/v1/data') === false) {
+				$this->rtnfch_note_sync_mismatch($order, 'the payment link belongs to another payment method.');
+				$out['reason'] = 'claim_mismatch';
+				return $out;
+			}
 		}
 
 		$payment_status = RTNFCH_State_Engine::map_status($data['payment_status'] ?? null);
