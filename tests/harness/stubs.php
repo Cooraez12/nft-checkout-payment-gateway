@@ -101,6 +101,7 @@ function get_current_user_id() { return 0; }
 function wp_privacy_anonymize_ip($ip) { return '***'; }
 function maybe_unserialize($v) { return is_string($v) && @unserialize($v) !== false ? unserialize($v) : $v; }
 function wc_get_orders($args) { $out = []; foreach ($GLOBALS['orders'] as $o) { if (in_array($o->get_status(), (array) $args['status'], true) && $o->get_payment_method() === $args['payment_method']) $out[] = ($args['return'] ?? '') === 'ids' ? $o->get_id() : $o; } return $out; }
+function clean_post_cache($id) { $GLOBALS['cleaned'][] = (int) $id; }
 function wc_get_order($id) { return $GLOBALS['orders'][(int) $id] ?? false; }
 function WC() { static $wc = null; if (!$wc) { $wc = new class { public $session; public $cart = null; public $version = '9.8.7'; public function __construct() { $this->session = new class { private $d = []; public function get($k) { return $this->d[$k] ?? null; } public function set($k, $v) { $this->d[$k] = $v; } public function get_customer_id() { return 'sess1'; } }; } public function is_store_api_request() { return false; } }; } return $wc; }
 
@@ -144,7 +145,8 @@ class WC_Order {
 	public function get_customer_id() { return 0; }
 	public function is_paid() { return $this->paid; }
 	public function needs_payment() { return !$this->paid && in_array($this->status, ['pending', 'failed'], true); }
-	public function payment_complete($txn = '') { $this->paid = true; $this->txn = $txn; $this->status = 'processing'; return true; }
+	public $completes = 0;
+	public function payment_complete($txn = '') { $this->completes++; $this->paid = true; $this->txn = $txn; $this->status = 'processing'; return true; }
 	public function get_transaction_id() { return $this->txn; }
 	public function get_checkout_order_received_url() { return 'https://shop.test/checkout/order-received/' . $this->id . '/?key=' . $this->key; }
 	public function get_edit_order_url() { return 'https://shop.test/wp-admin/post.php?post=' . $this->id; }
@@ -154,11 +156,13 @@ class WPDB_Stub {
 	public $prefix = 'wp_'; public $options = 'wp_options'; public $postmeta = 'wp_postmeta'; public $last_error = '';
 	public $rows = [];
 	public function prepare($q, ...$a) { $i = 0; return preg_replace_callback('/%[idsf]/', function ($m) use (&$i, $a) { $v = $a[$i++] ?? ''; return $m[0] === '%i' ? $v : (is_numeric($v) ? $v : "'" . $v . "'"); }, $q); }
-	public function get_var($q) { if (stripos($q, 'SHOW TABLES') !== false) return 'wp_rtnfch_payment_link'; if (stripos($q, 'GET_LOCK') !== false) return '1'; return null; }
+	// GET_LOCK answers $lock_result; $on_lock (run once) stands in for another worker that held the lock first.
+	public $lock_result = '1'; public $on_lock = null; public $lock_log = [];
+	public function get_var($q) { if (stripos($q, 'SHOW TABLES') !== false) return 'wp_rtnfch_payment_link'; if (stripos($q, 'GET_LOCK') !== false) { $this->lock_log[] = $q; if ($this->on_lock) { $cb = $this->on_lock; $this->on_lock = null; $cb(); } return $this->lock_result; } return null; }
 	public function get_row($q, $o = null) { if (preg_match('/order_id = (\d+)/', $q, $m)) { $rows = array_filter($this->rows, fn($r) => $r['order_id'] == $m[1]); if (preg_match("/uuid = '([^']*)'/", $q, $u)) $rows = array_filter($rows, fn($r) => $r['uuid'] === $u[1]); $rows = array_values($rows); return $rows ? end($rows) : null; } return null; }
 	public function insert($t, $row, $f = null) { $row['id'] = count($this->rows) + 1; $this->rows[] = $row; return 1; }
 	public function update($t, $d, $w, $f = null, $wf = null) { return 1; }
-	public function query($q) { return true; }
+	public function query($q) { if (stripos($q, 'RELEASE_LOCK') !== false) $this->lock_log[] = $q; return true; }
 	public function esc_like($s) { return $s; }
 	public function get_charset_collate() { return ''; }
 	public function get_results($q, $o = null) { return []; }

@@ -21,7 +21,7 @@ require_once plugin_dir_path(__FILE__) . 'rt-nft-checkout-payment-gateway-utils.
  */
 class RTNFCH_State_Engine
 {
-    const LOCK_TTL  = 12;
+    const LOCK_WAIT = 5;
     const EVENT_TTL = 86400;
 
     /* =========================================================
@@ -48,19 +48,28 @@ class RTNFCH_State_Engine
             return self::safe_response($order, 'duplicate_event_ignored', self::get_state($order));
         }
 
-        $lock_key = "rtnfch_lock_{$order_id}";
-        $lock_acquired = add_option($lock_key, time() + self::LOCK_TTL, '', 'no');
-        if (!$lock_acquired) {
-            $lock_time = (int) get_option($lock_key);
-            if ($lock_time > 0 && $lock_time < time()) {
-                update_option($lock_key, time() + self::LOCK_TTL, false);
-            } else {
-                // Not marked as seen: the sender may retry once the lock is gone.
-                return self::safe_response($order, 'locked_skip');
-            }
+        // N-1: a real MySQL mutex per order (add_option is not one under
+        // concurrency). Released by the server if this request dies.
+        global $wpdb;
+        $lock_name = "rtnfch_lock_{$order_id}";
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $lock_acquired = (int) $wpdb->get_var($wpdb->prepare("SELECT GET_LOCK(%s, %d)", $lock_name, self::LOCK_WAIT));
+        if ($lock_acquired !== 1) {
+            // Not marked as seen: the sender may retry once the lock is gone.
+            return self::safe_response($order, 'locked_skip');
         }
 
         try {
+            // Read the order again now that we hold the lock: a webhook or sync
+            // may have paid it while we waited, and the copy above is stale.
+            self::forget_cached_order($order_id);
+            $fresh_order = wc_get_order($order_id);
+            if ($fresh_order) {
+                $order = $fresh_order;
+            }
+            if (self::is_duplicate_event($order_id, $event_id)) {
+                return self::safe_response($order, 'duplicate_event_ignored', self::get_state($order));
+            }
 
             $current_state = self::normalize_state(self::get_state($order));
             $new_state     = self::normalize_state(self::resolve_state($payload));
@@ -145,8 +154,29 @@ class RTNFCH_State_Engine
             return self::safe_response($order, 'updated', $new_state);
 
         } finally {
-            delete_option($lock_key);
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+            $wpdb->query($wpdb->prepare("SELECT RELEASE_LOCK(%s)", $lock_name));
         }
+    }
+
+    /**
+     * Drop this request's cached copy of the order and of "event not seen yet",
+     * so the reads after the lock come from the database, not from the object
+     * cache filled before another request changed them (N-1).
+     */
+    private static function forget_cached_order($order_id)
+    {
+        if (function_exists('clean_post_cache')) {
+            clean_post_cache($order_id);
+        }
+        $hpos_cache = 'Automattic\\WooCommerce\\Caches\\OrderCache';
+        if (function_exists('wc_get_container') && class_exists($hpos_cache)) {
+            $cache = wc_get_container()->get($hpos_cache);
+            if (method_exists($cache, 'remove')) {
+                $cache->remove($order_id);
+            }
+        }
+        wp_cache_delete('notoptions', 'options');
     }
 
     private static function timeline_has_state_for_token($order, $state, $payment_token)
