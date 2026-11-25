@@ -19,3 +19,5 @@ jobs:
         run: git ls-files -z '*.js' | xargs -0 -n1 node --check
       - name: Existing isolated payment contracts
         run: php -n -d extension=ctype tests/harness/test_nft.php .
+      - name: Voucher page and skip setting
+        run: php -n -d extension=ctype tests/harness/test_voucher_page.php .

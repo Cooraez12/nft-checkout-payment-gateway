@@ -830,6 +830,14 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 				],
 			],
 
+			'skip_voucher_page' => [
+				'title'       => __('Skip voucher page', 'rt-nft-checkout'),
+				'label'       => __('Send shoppers straight to the card payment after checkout', 'rt-nft-checkout'),
+				'type'        => 'checkbox',
+				'description' => __('Off: shoppers see the voucher page with a CLICK HERE button. On: they go straight to the card payment page. The voucher email is sent either way.', 'rt-nft-checkout'),
+				'default'     => 'no',
+			],
+
 			'show_consent_checkbox' => [
 				'title'       => __('Consent tick box', 'rt-nft-checkout'),
 				'label'       => __('Ask shoppers to agree before paying', 'rt-nft-checkout'),
@@ -1242,11 +1250,8 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 				);
 			}
 
-			$purchase_url = esc_url_raw((string) ($voucher['data']['purchase_url'] ?? ''), ['https', 'http']);
 			// Unsigned /voucher/redeem/ URLs cause 410 "Voucher unavailable" on the server.
-			if (false !== strpos($purchase_url, '/voucher/redeem/') && false === strpos($purchase_url, 'signature=')) {
-				$purchase_url = '';
-			}
+			$purchase_url = rtnfch_voucher_link($voucher['data']['purchase_url'] ?? '');
 			$voucher['data']['purchase_url'] = $purchase_url;
 
 			$this->rtnfch_record_voucher_sent($order, $voucher['data']);
@@ -1286,6 +1291,14 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 				$order_id
 			);
 			$response['redirect'] = $order->get_checkout_order_received_url();
+
+			// "Skip voucher page": straight to the voucher link the email carries.
+			// Same voucher, same order: opening it again reuses its payment link.
+			// The email is still sent (it is the same /voucher/send call).
+			if ($purchase_url !== '' && rtnfch_skip_voucher_page()) {
+				$response['redirect'] = $purchase_url;
+				unset($response['data']['order_received']);
+			}
 
 			return $response;
 
@@ -1930,13 +1943,12 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 			return;
 		}
 
-		printf(
-			'<p class="rt-nft-checkout-thankyou-email-notice">%s</p>',
-			sprintf(
-				/* translators: %s: masked customer email address */
-				esc_html__('Almost done — check your email (%s) and open the link to pay by card. Your order is saved until you finish.', 'rt-nft-checkout'),
-				'<strong>' . esc_html($this->rtnfch_mask_email($order->get_billing_email())) . '</strong>'
-			)
+		// Escaped inside rtnfch_voucher_notice_html().
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		echo rtnfch_voucher_notice_html(
+			wp_specialchars_decode(get_bloginfo('name'), ENT_QUOTES),
+			$order->get_billing_email(),
+			rtnfch_voucher_link($order->get_meta('_rtnfch_voucher_purchase_url'))
 		);
 	}
 

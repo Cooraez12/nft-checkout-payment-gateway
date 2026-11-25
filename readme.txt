@@ -71,6 +71,8 @@ Yes. Turn on sandbox mode and enter the sandbox keys from your RT dashboard. No 
 
 = 1.0.8 =
 * A payment message from RT and a status check arriving at the same moment can no longer mark an order paid twice.
+* New wording on the page shoppers see after checkout, with a CLICK HERE button that opens the card payment straight away, without waiting for the email.
+* New setting "Skip voucher page": when on, shoppers go straight to the card payment after checkout. The email is still sent. Off by default.
 
 = 1.0.7 =
 * Updated the plugin's web address in the plugin details.
@@ -114,7 +116,7 @@ Cancelled orders now show as cancelled in RT and their payment e-mail stops work
 == Upgrade Notice ==
 
 = 1.0.8 =
-Prevents an order being marked paid twice. No settings change.
+Prevents an order being marked paid twice. New after-checkout wording and an optional "Skip voucher page" setting (off by default).
 
 = 1.0.7 =
 No settings change.
