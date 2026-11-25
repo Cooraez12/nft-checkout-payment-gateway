@@ -6,7 +6,7 @@ Tested up to: 7.1
 Requires PHP: 8.0
 WC requires at least: 6.5.4
 WC tested up to: 11.3
-Stable tag: 1.0.7
+Stable tag: 1.0.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -69,6 +69,9 @@ Yes. Turn on sandbox mode and enter the sandbox keys from your RT dashboard. No 
 
 == Changelog ==
 
+= 1.0.8 =
+* A payment message from RT and a status check arriving at the same moment can no longer mark an order paid twice.
+
 = 1.0.7 =
 * Updated the plugin's web address in the plugin details.
 
@@ -109,6 +112,9 @@ Cancelled orders now show as cancelled in RT and their payment e-mail stops work
 * Initial release.
 
 == Upgrade Notice ==
+
+= 1.0.8 =
+Prevents an order being marked paid twice. No settings change.
 
 = 1.0.7 =
 No settings change.

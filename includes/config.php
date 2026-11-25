@@ -80,7 +80,7 @@ if (!defined('RTNFCH_BASE_URL')) {
 }
 
 if (!defined('RTNFCH_PLUGIN_VERSION')) {
-    define('RTNFCH_PLUGIN_VERSION', '1.0.7');
+    define('RTNFCH_PLUGIN_VERSION', '1.0.8');
 }
 
 /* Gateway id. Orders placed before 1.0.2 may carry the underscore spelling. */

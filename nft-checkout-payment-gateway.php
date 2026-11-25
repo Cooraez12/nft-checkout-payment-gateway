@@ -7,7 +7,7 @@
  * Author URI: https://rt.app/
  * Text Domain: rt-nft-checkout
  * Plugin URI: https://rt.app/developers/
- * Version: 1.0.7
+ * Version: 1.0.8
  * Requires at least: 6.2
  * Requires PHP: 8.0
  * Requires Plugins: woocommerce

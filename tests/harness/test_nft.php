@@ -32,6 +32,7 @@ function reset_world() {
 	$GLOBALS['transients'] = [];
 	$GLOBALS['cache'] = [];
 	$GLOBALS['wpdb']->rows = [];
+	$GLOBALS['wpdb']->lock_result = '1'; $GLOBALS['wpdb']->on_lock = null; $GLOBALS['wpdb']->lock_log = [];
 	$GLOBALS['http_log'] = [];
 	$GLOBALS['mails'] = [];
 	$GLOBALS['notices'] = [];
@@ -340,6 +341,48 @@ $order->method = 'cod';
 $order->update_status('cancelled');
 rtnfch_cancel_unpaid_order_action(123);
 check('C6 another gateway\'s order is left alone', count($cancel_calls()) === 0);
+
+
+echo "== N-1: one paid transition under concurrency (GET_LOCK, fresh read, dedupe after the lock)\n";
+$lock_count = fn($kind) => count(array_filter($GLOBALS['wpdb']->lock_log, fn($q) => stripos($q, $kind) !== false && str_contains($q, 'rtnfch_lock_123')));
+
+// D1: the status sync pays the order while the webhook waits for the lock.
+$order = reset_world(); $synced = null;
+$GLOBALS['wpdb']->on_lock = function () use ($order, &$synced) { $synced = clone $order; $synced->payment_complete(UUID); $GLOBALS['orders'][123] = $synced; };
+$raw = json_encode($good);
+[$code, $data] = webhook([], signed_headers($raw, SEC_LIVE), $raw);
+check('D1 webhook + sync race: webhook sees the paid order after the lock, payment_complete runs once', $code === 200 && ($data['engine_reason'] ?? '') === 'final_success_locked' && $order->completes === 0 && $synced->completes === 1, "http $code " . ($data['engine_reason'] ?? '') . " stale={$order->completes} fresh={$synced->completes}");
+check('D1b the order cache is dropped before the re-read', in_array(123, $GLOBALS['cleaned'] ?? [], true));
+
+// D2: two workers deliver the same webhook event; the second waits and finds it applied.
+$order = reset_world(); $first = null;
+$event = ['status' => 'success', 'payment_token' => base64_encode(UUID), 'source' => 'Webhook', 'return_code' => '', 'failure_reason' => ''];
+$GLOBALS['wpdb']->on_lock = function () use ($order, &$first, $event) { $first = clone $order; $GLOBALS['orders'][123] = $first; RTNFCH_State_Engine::handle_event(123, 'webhook_update', $event); };
+$res = RTNFCH_State_Engine::handle_event(123, 'webhook_update', $event);
+check('D2 double webhook, two workers: second is a duplicate after the lock, paid once', ($res['reason'] ?? '') === 'duplicate_event_ignored' && $order->completes === 0 && $first->completes === 1, ($res['reason'] ?? '') . " first={$first->completes} second={$order->completes}");
+
+// D3: lock held past the wait -> 423, nothing applied, lock not released; the retry applies once.
+$order = reset_world(); $GLOBALS['wpdb']->lock_result = '0';
+$raw = json_encode($good);
+[$code] = webhook([], signed_headers($raw, SEC_LIVE), $raw);
+check('D3 lock timeout -> 423, order unpaid, no RELEASE_LOCK for a lock never held', $code === 423 && !$order->is_paid() && $order->completes === 0 && $lock_count('RELEASE_LOCK') === 0, "http $code");
+$GLOBALS['wpdb']->lock_result = '1';
+[$code, $data] = webhook([], signed_headers($raw, SEC_LIVE), $raw);
+check('D3b retry after timeout (same signature) is processed once', $code === 200 && $order->is_paid() && $order->completes === 1, "http $code " . ($data['engine_reason'] ?? ''));
+[$code, $data] = webhook([], signed_headers($raw, SEC_LIVE), $raw);
+check('D3c a further replay changes nothing', $code === 200 && $order->completes === 1);
+check('D3d every lock taken is released', $lock_count('GET_LOCK') >= 2 && $lock_count('GET_LOCK') - 1 === $lock_count('RELEASE_LOCK'), 'get=' . $lock_count('GET_LOCK') . ' release=' . $lock_count('RELEASE_LOCK'));
+
+// D4: sync then webhook in sequence (different event types, same payment).
+$order = reset_world();
+RTNFCH_State_Engine::handle_event(123, 'api_sync', ['status' => 'success', 'payment_token' => base64_encode(UUID), 'source' => 'API Sync']);
+$res = RTNFCH_State_Engine::handle_event(123, 'webhook_update', $event);
+check('D4 sync then webhook: second is final_success_locked, paid once', ($res['reason'] ?? '') === 'final_success_locked' && $order->completes === 1, ($res['reason'] ?? ''));
+
+// D5: lock released on an early return too.
+$order = reset_world(); $GLOBALS['wpdb']->lock_log = [];
+RTNFCH_State_Engine::handle_event(123, 'api_sync', ['status' => '', 'payment_token' => '']);
+check('D5 early return (no state) still releases the lock', $lock_count('GET_LOCK') === 1 && $lock_count('RELEASE_LOCK') === 1);
 
 $failed = array_filter($results, fn($r) => !$r[1]);
 echo "\n" . count($results) . " checks, " . count($failed) . " failed\n";
