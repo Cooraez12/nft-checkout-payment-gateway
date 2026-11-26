@@ -7,11 +7,11 @@ Accept card payments in WooCommerce through RT's hosted checkout. When the custo
 **Contributors:** RT.app
 **Tags:** woocommerce, payment gateway, card payments, RT.app
 **Requires at least:** 6.2
-**Tested up to:** 7.1
+**Tested up to:** 7.2
 **Requires PHP:** 8.0
 **WC requires at least:** 6.5.4
 **WC tested up to:** 11.0
-**Stable tag:** 1.0.8
+**Stable tag:** 1.0.9
 **License:** GPLv3 or later
 **License URI:** [GPLv3 License](https://www.gnu.org/licenses/gpl-3.0.html)
 
