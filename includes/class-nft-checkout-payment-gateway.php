@@ -2784,7 +2784,11 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 		if ('yes' !== $this->enabled) {
 			return false;
 		}
-		return !empty($this->get_all_accounts());
+		if (empty($this->get_all_accounts())) {
+			return false;
+		}
+		// Hidden while RT has NFT Checkout turned off (cached 60 s; shown if RT is unreachable).
+		return rtnfch_rt_gateway_available((bool) $this->sandbox);
 	}
 
 	/**
