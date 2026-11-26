@@ -6,6 +6,11 @@
  * gateway id, so renaming the gateway id can never disconnect the buttons.
  */
 jQuery(document).ready(function ($) {
+	/* jQuery 4 removed $.trim; use the native one. */
+	function trimText(value) {
+		return String(value == null ? '' : value).trim();
+	}
+
 
 	if (typeof rtnfch_admin_data === 'undefined' || typeof rtnfch_admin_data.gateway_id !== 'string') {
 		return;
@@ -201,7 +206,7 @@ jQuery(document).ready(function ($) {
 
 	/* Keep the heading in step with the account name. */
 	$(document).on('input', ACCOUNT + ' .account-title', function () {
-		var title = $.trim($(this).val()) || t.new_account;
+		var title = trimText($(this).val()) || t.new_account;
 		$(this).closest(ACCOUNT).find('.account-name-display').text(title);
 	});
 
@@ -245,11 +250,11 @@ jQuery(document).ready(function ($) {
 		}
 
 		var $title = $('#woocommerce_' + gatewayId + '_title');
-		if ($title.length && !$.trim($title.val())) {
+		if ($title.length && !trimText($title.val())) {
 			fail($title, t.need_title);
 		}
 		var $description = $('#woocommerce_' + gatewayId + '_description');
-		if ($description.length && !$.trim($description.val())) {
+		if ($description.length && !trimText($description.val())) {
 			fail($description, t.need_description);
 		}
 
@@ -263,12 +268,12 @@ jQuery(document).ready(function ($) {
 			var $sandboxSecret = $account.find('.sandbox-secret-key');
 			var sandboxTicked = $account.find(SANDBOX_CHECKBOX).is(':checked');
 
-			var name = $.trim($name.val() || '');
-			var order = $.trim($order.val() || '');
-			var livePublic = $.trim($livePublic.val() || '');
-			var liveSecret = $.trim($liveSecret.val() || '');
-			var sandboxPublic = $.trim($sandboxPublic.val() || '');
-			var sandboxSecret = $.trim($sandboxSecret.val() || '');
+			var name = trimText($name.val() || '');
+			var order = trimText($order.val() || '');
+			var livePublic = trimText($livePublic.val() || '');
+			var liveSecret = trimText($liveSecret.val() || '');
+			var sandboxPublic = trimText($sandboxPublic.val() || '');
+			var sandboxSecret = trimText($sandboxSecret.val() || '');
 			var liveSecretSaved = String($liveSecret.data('has-existing')) === '1';
 			var sandboxSecretSaved = String($sandboxSecret.data('has-existing')) === '1';
 
@@ -362,7 +367,7 @@ jQuery(document).ready(function ($) {
 		statuses.forEach(function (item) {
 			$(ACCOUNT).each(function () {
 				var $account = $(this);
-				if ($.trim($account.find('.account-title').val()) !== item.title) {
+				if (trimText($account.find('.account-title').val()) !== item.title) {
 					return;
 				}
 				$account.find(item.mode === 'live' ? '.live-status' : '.sandbox-status').val(item.status);

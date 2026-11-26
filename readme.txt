@@ -2,11 +2,11 @@
 Contributors: rtapp
 Tags: woocommerce, payment gateway, card payments, credit card, checkout
 Requires at least: 6.2
-Tested up to: 7.1
+Tested up to: 7.2
 Requires PHP: 8.0
 WC requires at least: 6.5.4
 WC tested up to: 11.3
-Stable tag: 1.0.8
+Stable tag: 1.0.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -69,6 +69,10 @@ Yes. Turn on sandbox mode and enter the sandbox keys from your RT dashboard. No 
 
 == Changelog ==
 
+= 1.0.9 =
+* Tested with WordPress 7.2 and WooCommerce 11.3.
+* Settings page no longer uses the jQuery function that jQuery 4 removes.
+
 = 1.0.8 =
 * A payment message from RT and a status check arriving at the same moment can no longer mark an order paid twice.
 * New wording on the page shoppers see after checkout, with a CLICK HERE button that opens the card payment straight away, without waiting for the email.
@@ -116,6 +120,9 @@ Cancelled orders now show as cancelled in RT and their payment e-mail stops work
 * Initial release.
 
 == Upgrade Notice ==
+
+= 1.0.9 =
+Compatibility update for WordPress 7.2. No change to how payments work.
 
 = 1.0.8 =
 Prevents an order being marked paid twice. New after-checkout wording and an optional "Skip voucher page" setting (off by default).
