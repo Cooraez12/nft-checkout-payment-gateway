@@ -92,6 +92,18 @@ if (!function_exists('rtnfch_add_unique_order_note')) {
  * ========================================================================= */
 
 /**
+ * This shop's tag at RT: 8 hex of a hash of its home URL. One RT business can
+ * run several WooCommerce shops whose order numbers repeat; RT matches an
+ * order only within its shop. Stable, and names no secret.
+ *
+ * @return string
+ */
+function rtnfch_store_ref()
+{
+	return substr(hash('sha256', rtrim((string) home_url(), '/')), 0, 8);
+}
+
+/**
  * Every gateway id an order of this plugin may carry.
  *
  * @return string[]
@@ -1112,4 +1124,38 @@ function rtnfch_voucher_notice_html($merchant, $email, $link)
 	) . '</p>';
 
 	return $html . '</div>';
+}
+
+/**
+ * A billing phone as E.164 ("+447700900123"), using the billing country's dial
+ * code. A number typed with "+" or "00" is kept as typed (digits only). The
+ * trunk "0" of a national number is dropped. The dial code is never guessed off
+ * the front of a national number. Empty stays empty.
+ *
+ * @param string $phone        What the customer typed.
+ * @param string $country_code The billing country's dial code ("+44" or "44").
+ * @return string
+ */
+function rtnfch_e164_phone($phone, $country_code)
+{
+	$phone = trim((string) $phone);
+	$digits = preg_replace('/\D/', '', $phone);
+	if ($digits === '') {
+		return '';
+	}
+	if (strpos($phone, '+') === 0 || strpos($phone, '00') === 0) {
+		return '+' . (strpos($phone, '00') === 0 ? substr($digits, 2) : $digits);
+	}
+	$code = preg_replace('/\D/', '', (string) $country_code);
+	if ($code === '') {
+		return $phone;
+	}
+	// The dial code is only ever taken off after "+" or "00" (above): national
+	// numbers can start with the same digits (India 91..., Italy 39..., 7...).
+	// NANP is the one exception: a national number never starts with 1, so
+	// "1 415 555 0132" is the dial code plus 10 digits.
+	if ($code === '1' && strlen($digits) === 11 && $digits[0] === '1') {
+		$digits = substr($digits, 1);
+	}
+	return '+' . $code . ltrim($digits, '0');
 }

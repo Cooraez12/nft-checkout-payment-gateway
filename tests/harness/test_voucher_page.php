@@ -39,6 +39,8 @@ class Voucher_Order extends WC_Order {
 $results = [];
 function check($name, $cond, $detail = '') { global $results; $results[] = [$name, (bool) $cond, $detail]; echo ($cond ? 'PASS ' : 'FAIL ') . $name . ($detail !== '' ? " ($detail)" : '') . "\n"; }
 
+// New references name the shop: "<shop>-<order>-<attempt>".
+define('T', rtnfch_store_ref() . '-');
 const LINK = 'https://app.rt.app/voucher/redeem/0b9f3c51-2f2e-4a43-9d38-5b7c1a1f0e11?signature=abc';
 
 function world($skip) {
@@ -104,48 +106,51 @@ $order = world('no');
 $first = (new RTNFCH_GATEWAY())->process_payment(123);
 $calls = count($GLOBALS['http_log']);
 $again = (new RTNFCH_GATEWAY())->process_payment(123);
-check('R1 same total again: same voucher page and link', ($again['result'] ?? '') === 'success' && ($again['data']['order_received']['purchase_url'] ?? '') === LINK && ($again['data']['order_received']['reference'] ?? '') === '123-1');
-check('R2 same total again: no call to RT, no new reference, no second email', count($GLOBALS['http_log']) === $calls && $refs() === ['123-1'] && $notes($order) === 1, implode(',', $refs()));
+check('R1 same total again: same voucher page and link', ($again['result'] ?? '') === 'success' && ($again['data']['order_received']['purchase_url'] ?? '') === LINK && ($again['data']['order_received']['reference'] ?? '') === T.'123-1');
+$sent_body = json_decode(array_values(array_filter($GLOBALS['http_log'], fn($c) => str_contains($c[1], '/voucher/send')))[0][2]['body'] ?? '{}', true);
+check('SH1 the voucher names this shop (meta_data.store_ref) and its reference starts with it', ($sent_body['meta_data']['store_ref'] ?? '') === rtnfch_store_ref() && str_starts_with((string) ($sent_body['reference'] ?? ''), rtnfch_store_ref() . '-123-'));
+check('SH2 another shop (other home URL) gets another tag, so its order #123 never meets this one', substr(hash('sha256', 'https://second-shop.test'), 0, 8) !== rtnfch_store_ref() && rtnfch_store_ref() === substr(hash('sha256', 'https://shop.test'), 0, 8));
+check('R2 same total again: no call to RT, no new reference, no second email', count($GLOBALS['http_log']) === $calls && $refs() === [T.'123-1'] && $notes($order) === 1, implode(',', $refs()));
 
 $order = world('yes');
 (new RTNFCH_GATEWAY())->process_payment(123);
 $again = (new RTNFCH_GATEWAY())->process_payment(123);
-check('R3 skip on, same total again: straight to the same link, one voucher', ($again['redirect'] ?? '') === LINK && $refs() === ['123-1']);
+check('R3 skip on, same total again: straight to the same link, one voucher', ($again['redirect'] ?? '') === LINK && $refs() === [T.'123-1']);
 
 $order = world('no');
 (new RTNFCH_GATEWAY())->process_payment(123);
 $order->total = '120.00';
 (new RTNFCH_GATEWAY())->process_payment(123);
-check('R4 changed total: a new voucher with a new reference', $refs() === ['123-1', '123-2'] && $order->get_meta('_rtnfch_voucher_total') === '120.00 USD test1291@yopmail.com', implode(',', $refs()));
+check('R4 changed total: a new voucher with a new reference', $refs() === [T.'123-1', T.'123-2'] && $order->get_meta('_rtnfch_voucher_total') === '120.00 USD test1291@yopmail.com', implode(',', $refs()));
 
 $order = world('no');
 (new RTNFCH_GATEWAY())->process_payment(123);
 $order->update_meta_data('_rtnfch_timeline', [['type' => 'failed', 'payment_token' => 'tok1']]);
 (new RTNFCH_GATEWAY())->process_payment(123);
-check('R5 after a failed payment: a fresh voucher, as before', $refs() === ['123-1', '123-2'], implode(',', $refs()));
+check('R5 after a failed payment: a fresh voucher, as before', $refs() === [T.'123-1', T.'123-2'], implode(',', $refs()));
 
 $order = world('no');
 $order->update_meta_data('_rtnfch_voucher_reference', '123-1');
 $order->update_meta_data('_rtnfch_voucher_purchase_url', LINK);
 (new RTNFCH_GATEWAY())->process_payment(123);
-check('R6 voucher from before 1.0.8 (no total saved): a new one, as before', $refs() === ['123-2'], implode(',', $refs()));
+check('R6 voucher from before 1.0.8 (no total saved): a new one, as before', $refs() === [T.'123-2'], implode(',', $refs()));
 
 $order = world('no');
 (new RTNFCH_GATEWAY())->process_payment(123);
 $order->email = 'Fixed.Typo@Example.test';
 (new RTNFCH_GATEWAY())->process_payment(123);
 $to = json_decode(end($GLOBALS['http_log'])[2]['body'] ?? '{}', true)['email'] ?? '';
-check('R8 email corrected, same total: a new voucher to the new address', $refs() === ['123-1', '123-2'] && $to === 'Fixed.Typo@Example.test', implode(',', $refs()) . ' ' . $to);
+check('R8 email corrected, same total: a new voucher to the new address', $refs() === [T.'123-1', T.'123-2'] && $to === 'Fixed.Typo@Example.test', implode(',', $refs()) . ' ' . $to);
 $order->email = 'fixed.typo@example.test';
 (new RTNFCH_GATEWAY())->process_payment(123);
-check('R8b same email in another case: reused', $refs() === ['123-1', '123-2']);
+check('R8b same email in another case: reused', $refs() === [T.'123-1', T.'123-2']);
 
 // RT voucher links have no deadline (backend purchase_url()), so age alone never forces a new one.
 $order = world('no');
 (new RTNFCH_GATEWAY())->process_payment(123);
 $order->update_meta_data('_rtnfch_voucher_emailed_at', time() - 60 * DAY_IN_SECONDS);
 (new RTNFCH_GATEWAY())->process_payment(123);
-check('R9 a 60-day-old voucher is still reused (RT links do not expire)', $refs() === ['123-1']);
+check('R9 a 60-day-old voucher is still reused (RT links do not expire)', $refs() === [T.'123-1']);
 
 // Double click: the second request arrives while the first is still running.
 $order = world('no');

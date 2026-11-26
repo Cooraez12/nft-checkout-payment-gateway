@@ -718,6 +718,7 @@ class RTNFCH_GATEWAY_Loader
 		$payload = [
 			'order_id'   => (string) $order_id,
 			'is_sandbox' => (int) $account['is_sandbox'],
+			'store_ref'  => rtnfch_store_ref(),
 		];
 		/*
 		 * NFT-01: ask about the newest payment, not the first one. While the
@@ -784,6 +785,14 @@ class RTNFCH_GATEWAY_Loader
 			$site_host = strtolower((string) wp_parse_url(home_url(), PHP_URL_HOST));
 			if ($link_host === '' || $link_host !== $site_host) {
 				$this->rtnfch_note_sync_mismatch($order, 'the payment link belongs to another site.');
+				$out['reason'] = 'claim_mismatch';
+				return $out;
+			}
+			// RT finds an order's link by order number for the whole merchant, so
+			// the same number can also have a link from another RT plugin on this
+			// shop (bank transfer). Only a link that returns to this plugin counts.
+			if (strpos($redirect_url, 'nft-checkout/v1/data') === false) {
+				$this->rtnfch_note_sync_mismatch($order, 'the payment link belongs to another payment method.');
 				$out['reason'] = 'claim_mismatch';
 				return $out;
 			}

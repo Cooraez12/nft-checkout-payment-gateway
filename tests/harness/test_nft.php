@@ -384,6 +384,53 @@ $order = reset_world(); $GLOBALS['wpdb']->lock_log = [];
 RTNFCH_State_Engine::handle_event(123, 'api_sync', ['status' => '', 'payment_token' => '']);
 check('D5 early return (no state) still releases the lock', $lock_count('GET_LOCK') === 1 && $lock_count('RELEASE_LOCK') === 1);
 
+echo "== Customer chose another payment method -> the card e-mail is cancelled at RT\n";
+preg_match('/^function rtnfch_release_on_switch\(.*?^}/ms', file_get_contents($GLOBALS['plugin_dir'] . '/nft-checkout-payment-gateway.php'), $release_src);
+eval($release_src[0]);
+$order = reset_world(); $GLOBALS['http'] = $cancel_http($cancelled_ok);
+$order->update_meta_data('_rtnfch_voucher_id', 'c0ffee00-0000-4000-8000-000000000001');
+$order->update_meta_data('_rtnfch_voucher_reference', '123-1');
+$order->changes = ['payment_method' => 'rt_bank_transfer'];
+rtnfch_release_on_switch($order);
+$calls = $cancel_calls(); $req = $calls[0][2] ?? ['body' => '{}', 'headers' => []]; $sent = json_decode($req['body'], true);
+check('R1 switch away: RT cancels the voucher (signed), order unchanged', count($calls) === 1 && ($sent['status'] ?? '') === 'canceled' && ($sent['voucher_id'] ?? '') === 'c0ffee00-0000-4000-8000-000000000001' && hash_hmac('sha256', $req['headers']['X-Timestamp'] . '.' . $req['body'], SEC_LIVE) === $req['headers']['X-Signature'] && $order->get_status() === 'pending' && !$order->is_paid(), $req['body']);
+check('R1b one note, reference remembered', count(array_filter($order->get_notes(), fn($n) => str_contains($n, 'chose another payment method, so the card payment e-mail'))) === 1 && $order->get_meta('_rtnfch_released_ref') === 'c0ffee00-0000-4000-8000-000000000001');
+rtnfch_release_on_switch($order);
+check('R2 a second save does not call RT again', count($cancel_calls()) === 1);
+
+$order = reset_world(); $GLOBALS['http'] = $cancel_http(['status' => false, 'updated_status' => 'reconciliation_required', 'message' => 'Payment has started.']);
+$order->update_meta_data('_rtnfch_pay_id', base64_encode(UUID));
+$order->changes = ['payment_method' => 'rt_card'];
+rtnfch_release_on_switch($order);
+check('R3 RT refuses (payment going through): the merchant is told, nothing remembered', count(array_filter($order->get_notes(), fn($n) => str_contains($n, 'could not cancel their card payment e-mail'))) === 1 && $order->get_meta('_rtnfch_released_ref') === '');
+
+$order = reset_world(); $GLOBALS['http'] = $cancel_http($cancelled_ok);
+$order->update_meta_data('_rtnfch_voucher_id', 'c0ffee00-0000-4000-8000-000000000001');
+$order->changes = ['payment_method' => 'nft_checkout']; rtnfch_release_on_switch($order);
+$order->changes = ['billing_email' => 'x@example.test']; rtnfch_release_on_switch($order);
+$order->method = 'rt_usdc'; $order->changes = ['payment_method' => 'rt_card']; rtnfch_release_on_switch($order);
+check('R4 no call: its own legacy id, no payment-method change, or another plugin\'s order', count($cancel_calls()) === 0);
+
+$order = reset_world(); $GLOBALS['http'] = $cancel_http($cancelled_ok);
+$order->update_meta_data('_rtnfch_voucher_id', 'c0ffee00-0000-4000-8000-000000000001');
+$order->payment_complete('x'); $order->changes = ['payment_method' => 'rt_card'];
+rtnfch_release_on_switch($order);
+check('R5 a paid order is never released', count($cancel_calls()) === 0);
+
+echo "== Late card payment after the switch -> note only\n";
+$order = reset_world(); $order->method = 'rt_bank_transfer';
+$late = ['order_id' => 123, 'order_status' => 'success', 'pay_id' => base64_encode(UUID), 'amount' => '90.00', 'curr_code' => 'USD'];
+$raw = json_encode($late);
+[$code, $data] = webhook([], signed_headers($raw, SEC_LIVE), $raw);
+check('L1 signed late payment for a moved order: 200, order unchanged, one note', $code === 200 && ($data['engine_reason'] ?? '') === 'other_payment_method' && !$order->is_paid() && $order->get_status() === 'pending' && count(array_filter($order->get_notes(), fn($n) => str_contains($n, 'also paid this order'))) === 1, "http $code");
+$raw2 = json_encode($late + ['x' => 1]);
+[$code] = webhook([], signed_headers($raw2, 'wrong-secret'), $raw2);
+check('L2 an unsigned late report is refused', $code === 401);
+
+// Phones go to RT as E.164 from the billing country (UK 07700 900123 -> +447700900123).
+foreach ([['07700 900123','+44','+447700900123'],['+44 7700 900123','+44','+447700900123'],['0044 7700 900123','+44','+447700900123'],['9123456789','+91','+919123456789'],['3912345678','+39','+393912345678'],['7012345678','+7','+77012345678'],['+91 91234 56789','+91','+919123456789'],['(415) 555-0132','+1','+14155550132'],['1 415 555 0132','+1','+14155550132'],['','+1',''],['030 1234567','+49','+49301234567']] as [$in, $cc, $want]) { $got = rtnfch_e164_phone($in, $cc); check('PH ' . $in . ' [' . $cc . '] -> ' . $want, $got === $want, $got); }
+check('PH payload sends the E.164 phone', str_contains(file_get_contents($GLOBALS['plugin_dir'] . '/includes/class-nft-checkout-payment-gateway.php'), '$phone        = rtnfch_e164_phone($phone, $country_code);'));
+
 $failed = array_filter($results, fn($r) => !$r[1]);
 echo "\n" . count($results) . " checks, " . count($failed) . " failed\n";
 exit($failed ? 1 : 0);

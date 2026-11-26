@@ -1778,7 +1778,9 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 
 		$next_attempt = max($last_voucher_attempt, $timeline_attempts) + 1;
 
-		return $order->get_id() . '-' . $next_attempt;
+		// "<shop>-<order>-<attempt>": RT keeps one open voucher per reference, and
+		// order numbers repeat across one business's shops.
+		return rtnfch_store_ref() . '-' . $order->get_id() . '-' . $next_attempt;
 	}
 
 	/**
@@ -2058,6 +2060,9 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 		$phone       = sanitize_text_field($original_phone);
 		$country     = $order->get_billing_country();
 		$country_code = WC()->countries->get_country_calling_code($country);
+		// E.164 from the billing country: UK 07700 900123 -> +447700900123, so RT
+		// and its payment page keep the country (it showed +1 (077) 009-0012).
+		$phone        = rtnfch_e164_phone($phone, $country_code);
 		
 		$billing_address_1 = sanitize_text_field($order->get_billing_address_1());
 		$billing_address_2 = sanitize_text_field($order->get_billing_address_2());
@@ -2089,6 +2094,8 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 			'amount'         => $amount,
 			'source'         => 'woocommerce',
 			'plugin_version' => $plugin_version,
+			// One RT business can run several shops whose order numbers repeat.
+			'store_ref'      => rtnfch_store_ref(),
 		]);
 
 		$user_id = $order->get_customer_id();
