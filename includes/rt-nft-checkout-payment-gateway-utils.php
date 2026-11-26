@@ -2,6 +2,7 @@
 if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 require_once plugin_dir_path(__FILE__) . 'config.php';
+require_once plugin_dir_path(__FILE__) . 'class-nft-checkout-payment-logger.php';
 
 /**
  * Check the environment for compatibility issues.
@@ -1112,4 +1113,42 @@ function rtnfch_voucher_notice_html($merchant, $email, $link)
 	) . '</p>';
 
 	return $html . '</div>';
+}
+
+/**
+ * Is NFT Checkout switched on at RT right now? (RT Money safety → Checkout health.)
+ *
+ * RT turns a card checkout off when its payment partner stops settling orders
+ * correctly. Then this gateway is hidden, so shoppers never start a payment
+ * that cannot finish. One small public GET, cached for 60 seconds per mode.
+ * Fail-open ONLY when RT cannot be reached or answers nonsense: a log line
+ * says so, and that answer is cached for 60 seconds too (no retry storm).
+ *
+ * @param bool $sandbox Test mode.
+ * @return bool
+ */
+function rtnfch_rt_gateway_available($sandbox)
+{
+	$mode = $sandbox ? 'sandbox' : 'live';
+	$key  = 'rtnfch_gateway_status_' . $mode;
+	$cached = get_transient($key);
+	if (is_array($cached) && array_key_exists('available', $cached)) {
+		return (bool) $cached['available'];
+	}
+	$url = RTNFCH_API_BASE_URL . '/reconciliation/gateway-status?mode=' . $mode;
+	$response = wp_remote_get(esc_url_raw($url), ['timeout' => 3, 'redirection' => 0, 'sslverify' => true]);
+	$code = is_wp_error($response) ? 0 : (int) wp_remote_retrieve_response_code($response);
+	$body = $code === 200 ? json_decode((string) wp_remote_retrieve_body($response), true) : null;
+	$entry = is_array($body) ? ($body['gateways']['nft_checkout'] ?? null) : null;
+	if (!is_array($entry) || !array_key_exists('available', $entry)) {
+		RTNFCH_Logger::warning('RT checkout status could not be read; NFT Checkout stays shown', ['http' => $code, 'mode' => $mode]);
+		set_transient($key, ['available' => true, 'unreachable' => true], 60);
+		return true;
+	}
+	$available = true === $entry['available'];
+	if (!$available) {
+		RTNFCH_Logger::info('RT turned NFT Checkout off for now; gateway hidden', ['mode' => $mode]);
+	}
+	set_transient($key, ['available' => $available], 60);
+	return $available;
 }

@@ -384,6 +384,28 @@ $order = reset_world(); $GLOBALS['wpdb']->lock_log = [];
 RTNFCH_State_Engine::handle_event(123, 'api_sync', ['status' => '', 'payment_token' => '']);
 check('D5 early return (no state) still releases the lock', $lock_count('GET_LOCK') === 1 && $lock_count('RELEASE_LOCK') === 1);
 
+// G: RT turned NFT Checkout off (Money safety → Checkout health): gateway hidden.
+$status_body = function ($available) { return ['response' => ['code' => 200], 'body' => json_encode(['mode' => 'live', 'gateways' => ['nft_checkout' => ['available' => $available], 'nft_checkout_2' => ['available' => true]]])]; };
+reset_world();
+$GLOBALS['http'] = function ($url, $args) use ($status_body) { return $status_body(false); };
+check('G1 RT says off: hidden', rtnfch_rt_gateway_available(false) === false);
+$calls = count($GLOBALS['http_log']);
+rtnfch_rt_gateway_available(false);
+check('G2 the answer is cached (no second call within 60 s)', count($GLOBALS['http_log']) === $calls);
+check('G3 the call is the public status read for this mode', strpos($GLOBALS['http_log'][0][1], '/reconciliation/gateway-status?mode=live') !== false);
+reset_world();
+$GLOBALS['http'] = function ($url, $args) use ($status_body) { return $status_body(true); };
+check('G4 RT says on: shown', rtnfch_rt_gateway_available(true) === true && strpos($GLOBALS['http_log'][0][1], 'mode=sandbox') !== false);
+reset_world();
+$GLOBALS['http'] = function ($url, $args) { return new WP_Error('http_request_failed', 'timeout'); };
+check('G5 RT unreachable: fail-open (shown)', rtnfch_rt_gateway_available(false) === true);
+$calls = count($GLOBALS['http_log']);
+rtnfch_rt_gateway_available(false);
+check('G6 an unreachable answer is cached too (no retry storm)', count($GLOBALS['http_log']) === $calls);
+reset_world();
+$GLOBALS['http'] = function ($url, $args) { return ['response' => ['code' => 200], 'body' => '{"gateways":{}}']; };
+check('G7 an answer without this gateway: shown', rtnfch_rt_gateway_available(false) === true);
+
 $failed = array_filter($results, fn($r) => !$r[1]);
 echo "\n" . count($results) . " checks, " . count($failed) . " failed\n";
 exit($failed ? 1 : 0);
