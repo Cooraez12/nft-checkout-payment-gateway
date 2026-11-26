@@ -427,6 +427,10 @@ $raw2 = json_encode($late + ['x' => 1]);
 [$code] = webhook([], signed_headers($raw2, 'wrong-secret'), $raw2);
 check('L2 an unsigned late report is refused', $code === 401);
 
+// Phones go to RT as E.164 from the billing country (UK 07700 900123 -> +447700900123).
+foreach ([['07700 900123','+44','+447700900123'],['+44 7700 900123','+44','+447700900123'],['0044 7700 900123','+44','+447700900123'],['447700900123','44','+447700900123'],['(415) 555-0132','+1','+14155550132'],['1 415 555 0132','+1','+14155550132'],['','+1',''],['030 1234567','+49','+49301234567']] as [$in, $cc, $want]) { $got = rtnfch_e164_phone($in, $cc); check('PH ' . $in . ' [' . $cc . '] -> ' . $want, $got === $want, $got); }
+check('PH payload sends the E.164 phone', str_contains(file_get_contents($GLOBALS['plugin_dir'] . '/includes/class-nft-checkout-payment-gateway.php'), '$phone        = rtnfch_e164_phone($phone, $country_code);'));
+
 $failed = array_filter($results, fn($r) => !$r[1]);
 echo "\n" . count($results) . " checks, " . count($failed) . " failed\n";
 exit($failed ? 1 : 0);
