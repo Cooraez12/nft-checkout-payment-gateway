@@ -1778,7 +1778,9 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 
 		$next_attempt = max($last_voucher_attempt, $timeline_attempts) + 1;
 
-		return $order->get_id() . '-' . $next_attempt;
+		// "<shop>-<order>-<attempt>": RT keeps one open voucher per reference, and
+		// order numbers repeat across one business's shops.
+		return rtnfch_store_ref() . '-' . $order->get_id() . '-' . $next_attempt;
 	}
 
 	/**
@@ -2089,6 +2091,8 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 			'amount'         => $amount,
 			'source'         => 'woocommerce',
 			'plugin_version' => $plugin_version,
+			// One RT business can run several shops whose order numbers repeat.
+			'store_ref'      => rtnfch_store_ref(),
 		]);
 
 		$user_id = $order->get_customer_id();

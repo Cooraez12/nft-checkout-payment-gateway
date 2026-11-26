@@ -718,6 +718,7 @@ class RTNFCH_GATEWAY_Loader
 		$payload = [
 			'order_id'   => (string) $order_id,
 			'is_sandbox' => (int) $account['is_sandbox'],
+			'store_ref'  => rtnfch_store_ref(),
 		];
 		/*
 		 * NFT-01: ask about the newest payment, not the first one. While the
