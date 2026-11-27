@@ -7,7 +7,7 @@
  * Author URI: https://rt.app/
  * Text Domain: rt-nft-checkout
  * Plugin URI: https://rt.app/developers/
- * Version: 1.0.9
+ * Version: 1.0.10
  * Requires at least: 6.2
  * Requires PHP: 8.0
  * Requires Plugins: woocommerce
@@ -68,6 +68,9 @@ add_action('init', 'rtnfch_maybe_upgrade', 20);
  * cancel ANY unpaid order on the whole store. A cancelled or failed NFT
  * Checkout order tells RT through the status hooks below instead.
  */
+// BANK-1165: the Resend voucher button on the order-received page.
+add_action('template_redirect', 'rtnfch_handle_resend_voucher_post', 20);
+
 add_action('woocommerce_order_status_cancelled', 'rtnfch_cancel_unpaid_order_action', 10, 1);
 add_action('woocommerce_order_status_failed', 'rtnfch_cancel_unpaid_order_action', 10, 1);
 
