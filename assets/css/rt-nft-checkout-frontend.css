@@ -433,3 +433,49 @@
 .rt-nft-checkout-order-received .rt-nft-checkout-dprv__points {
     text-align: left;
 }
+
+/* BANK-1165: order-received page. Our card leads; WooCommerce's own
+   "Thank you. Your order has been received." line right after it is hidden. */
+.rt-nft-checkout-order-received--page {
+    margin: 0 auto 32px;
+    max-width: 100%;
+}
+
+.rt-nft-checkout-order-received--page ~ .woocommerce-thankyou-order-received,
+.wc-block-order-confirmation-status .rt-nft-checkout-order-received--page ~ h1,
+.wc-block-order-confirmation-status .rt-nft-checkout-order-received--page ~ p {
+    display: none;
+}
+
+.rt-nft-checkout-order-received__resend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px 12px;
+    margin: 20px 0 0;
+}
+
+.rt-nft-checkout-order-received .rt-nft-checkout-order-received__resend-button {
+    min-height: 44px;
+    padding: 10px 22px;
+    background: #fff;
+    color: #2563eb;
+    border: 1px solid #2563eb;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.rt-nft-checkout-order-received__resent {
+    margin: 16px 0 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+@media (max-width: 480px) {
+    .rt-nft-checkout-order-received--page {
+        padding: 24px 16px;
+    }
+}

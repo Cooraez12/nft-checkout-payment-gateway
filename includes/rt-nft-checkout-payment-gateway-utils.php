@@ -1113,3 +1113,111 @@ function rtnfch_voucher_notice_html($merchant, $email, $link)
 
 	return $html . '</div>';
 }
+
+/**
+ * BANK-1165: what the Resend voucher button posts, so the request can be
+ * checked: order id, order key (the order-received URL's own key) and a nonce.
+ *
+ * @param WC_Order $order Order.
+ * @return array ['action' => url, 'order_id' => int, 'key' => string, 'nonce' => string]
+ */
+function rtnfch_resend_fields($order)
+{
+	return [
+		'action'   => $order->get_checkout_order_received_url(),
+		'order_id' => $order->get_id(),
+		'key'      => $order->get_order_key(),
+		'nonce'    => wp_create_nonce('rtnfch_resend_voucher_' . $order->get_id()),
+	];
+}
+
+/**
+ * BANK-1165: the "Almost done - check your email" page shown after checkout.
+ * Every value is escaped here. Keep it in step with showOrderReceived() in
+ * assets/js/rt-nft-checkout.js (the classic checkout's in-place panel).
+ *
+ * @param array $d order_number, email, items (label/value rows), amount_due,
+ *                 site_name, purchase_url, resend (rtnfch_resend_fields()), status.
+ * @return string HTML.
+ */
+function rtnfch_order_received_html(array $d)
+{
+	$row = function ($label, $value, $total = false) {
+		return '<div class="rt-nft-checkout-order-received__row' . ($total ? ' rt-nft-checkout-order-received__row--total' : '') . '"><span>' . esc_html($label) . '</span><span>' . esc_html($value) . '</span></div>';
+	};
+
+	$html  = '<div class="rt-nft-checkout-order-received rt-nft-checkout-order-received--page" role="status">';
+	$html .= '<h2 class="rt-nft-checkout-order-received__title">' . esc_html__('Almost done – check your email', 'rt-nft-checkout') . '</h2>';
+
+	$html .= '<div class="rt-nft-checkout-order-received__summary">';
+	$html .= $row(__('Order', 'rt-nft-checkout'), '#' . ($d['order_number'] ?? ''));
+	foreach ((array) ($d['items'] ?? []) as $item) {
+		$html .= $row($item['label'] ?? '', $item['value'] ?? '');
+	}
+	$html .= $row(__('Email', 'rt-nft-checkout'), $d['email'] ?? '');
+	$html .= $row(__('Total', 'rt-nft-checkout'), $d['amount_due'] ?? '', true);
+	$html .= '</div>';
+
+	$html .= rtnfch_voucher_notice_html($d['site_name'] ?? '', $d['email'] ?? '', $d['purchase_url'] ?? '');
+
+	$messages = [
+		'sent'    => __('We sent the email again. It can take a few minutes, so check your spam folder too.', 'rt-nft-checkout'),
+		'wait'    => __('We just sent it. Please wait a minute before asking again.', 'rt-nft-checkout'),
+		'expired' => __('This email can no longer be sent again. Go back to the shop and check out again.', 'rt-nft-checkout'),
+		'failed'  => __('We could not send the email again right now. Please try again in a minute.', 'rt-nft-checkout'),
+	];
+	$status = (string) ($d['status'] ?? '');
+	if (isset($messages[$status])) {
+		$html .= '<p class="rt-nft-checkout-order-received__resent">' . esc_html($messages[$status]) . '</p>';
+	}
+
+	$f = (array) ($d['resend'] ?? []);
+	if (!empty($f['action'])) {
+		$html .= '<form class="rt-nft-checkout-order-received__resend" method="post" action="' . esc_url($f['action']) . '">';
+		$html .= '<input type="hidden" name="rtnfch_resend_voucher" value="1">';
+		$html .= '<input type="hidden" name="order_id" value="' . esc_attr($f['order_id'] ?? '') . '">';
+		$html .= '<input type="hidden" name="key" value="' . esc_attr($f['key'] ?? '') . '">';
+		$html .= '<input type="hidden" name="rtnfch_resend_nonce" value="' . esc_attr($f['nonce'] ?? '') . '">';
+		$html .= '<span>' . esc_html__('No email yet?', 'rt-nft-checkout') . '</span> ';
+		$html .= '<button type="submit" class="button rt-nft-checkout-order-received__resend-button">' . esc_html__('Resend voucher', 'rt-nft-checkout') . '</button>';
+		$html .= '</form>';
+	}
+
+	return $html . '</div>';
+}
+
+/**
+ * BANK-1165: handle a Resend voucher click (POST to the order-received page).
+ * Checks the nonce and the order key, then asks the gateway to send the
+ * order's existing voucher again, and comes back to the same page with the
+ * result (?rtnfch_resent=sent|wait|expired|failed). Never creates an order or
+ * a payment link.
+ */
+function rtnfch_handle_resend_voucher_post()
+{
+	// phpcs:disable WordPress.Security.NonceVerification.Missing -- the nonce is verified below.
+	if (empty($_POST['rtnfch_resend_voucher'])) {
+		return;
+	}
+	$order_id = absint($_POST['order_id'] ?? 0);
+	$key      = sanitize_text_field(wp_unslash($_POST['key'] ?? ''));
+	$nonce    = sanitize_text_field(wp_unslash($_POST['rtnfch_resend_nonce'] ?? ''));
+	// phpcs:enable WordPress.Security.NonceVerification.Missing
+
+	$order = wc_get_order($order_id);
+	if (!rtnfch_is_gateway_order($order) || $key === '' || !hash_equals((string) $order->get_order_key(), $key)) {
+		return;
+	}
+
+	$status = 'failed';
+	if (wp_verify_nonce($nonce, 'rtnfch_resend_voucher_' . $order_id)) {
+		$gateways = WC()->payment_gateways()->payment_gateways();
+		$gateway  = $gateways[RTNFCH_GATEWAY_ID] ?? null;
+		if ($gateway && method_exists($gateway, 'rtnfch_resend_voucher')) {
+			$status = $gateway->rtnfch_resend_voucher($order);
+		}
+	}
+
+	wp_safe_redirect(add_query_arg(['rtnfch_resent' => $status], $order->get_checkout_order_received_url()));
+	exit;
+}

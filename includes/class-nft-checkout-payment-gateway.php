@@ -89,7 +89,10 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 			2
 		);
 
-		add_action('woocommerce_thankyou_' . $this->id, [$this, 'rtnfch_thankyou_payment_link_notice']);
+		// BANK-1165: before_thankyou runs at the top of both the classic
+		// thank-you template and the block theme's Order confirmation block, so
+		// the voucher page leads the page instead of sitting under WooCommerce's.
+		add_action('woocommerce_before_thankyou', [$this, 'rtnfch_thankyou_payment_link_notice']);
 
 	}
 
@@ -1294,6 +1297,8 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 						// The email button's own link, so "Not receiving the email?
 						// Click here" opens exactly what the email would.
 						'purchase_url' => $purchase_url,
+						// BANK-1165: the Resend voucher button posts to the order-received page.
+						'resend'       => rtnfch_resend_fields($order),
 					],
 				],
 				200,
@@ -1996,24 +2001,94 @@ class RTNFCH_GATEWAY extends WC_Payment_Gateway_CC
 	}
 
 	/**
-	 * Remind the customer on the order-received page that payment happens via the emailed voucher.
+	 * BANK-1165: the "Almost done - check your email" page at the top of the
+	 * order-received page (classic template and block theme): order, items,
+	 * total, email, the DPRV voucher text and a Resend voucher button. Nothing
+	 * is asked of RT here.
 	 *
 	 * @param int $order_id Order ID.
 	 */
 	public function rtnfch_thankyou_payment_link_notice($order_id) {
 		$order = wc_get_order($order_id);
 
-		if (!$order || !$order->has_status('pending') || !$order->get_meta('_rtnfch_voucher_emailed_at')) {
+		if (!rtnfch_is_gateway_order($order) || !$order->has_status('pending') || !$order->get_meta('_rtnfch_voucher_emailed_at')) {
 			return;
 		}
 
-		// Escaped inside rtnfch_voucher_notice_html().
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display only: which resend message to show.
+		$status = isset($_GET['rtnfch_resent']) ? sanitize_key(wp_unslash($_GET['rtnfch_resent'])) : '';
+
+		// Escaped inside rtnfch_order_received_html().
 		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-		echo rtnfch_voucher_notice_html(
-			wp_specialchars_decode(get_bloginfo('name'), ENT_QUOTES),
-			$order->get_billing_email(),
-			rtnfch_voucher_link($order->get_meta('_rtnfch_voucher_purchase_url'))
-		);
+		echo rtnfch_order_received_html([
+			'order_number' => $order->get_order_number(),
+			'email'        => $order->get_billing_email(),
+			'items'        => $this->rtnfch_get_summary_rows($order),
+			'amount_due'   => $this->rtnfch_plain_price($order->get_total(), $order),
+			'site_name'    => wp_specialchars_decode(get_bloginfo('name'), ENT_QUOTES),
+			'purchase_url' => rtnfch_voucher_link($order->get_meta('_rtnfch_voucher_purchase_url')),
+			'resend'       => rtnfch_resend_fields($order),
+			'status'       => $status,
+		]);
+	}
+
+	/**
+	 * BANK-1165: email the customer the voucher already raised for this order
+	 * again. Same reference to RT's /voucher/send, which hands back the order's
+	 * one open voucher (no second voucher, no payment link: that is still made
+	 * only when the customer opens the email). One call, no /dailylimit, once
+	 * per 60 s per order.
+	 *
+	 * @param WC_Order $order Order.
+	 * @return string sent | wait | expired | failed
+	 */
+	public function rtnfch_resend_voucher($order) {
+		if (!rtnfch_is_gateway_order($order) || !$order->has_status('pending') || null === $this->rtnfch_reusable_voucher($order)) {
+			return 'expired';
+		}
+
+		$lock = 'rtnfch_resend_' . $order->get_id();
+		if (get_transient($lock)) {
+			return 'wait';
+		}
+		set_transient($lock, time(), MINUTE_IN_SECONDS);
+
+		// The account that raised the voucher; RT keeps one voucher per order per account.
+		$account = rtnfch_get_order_account($order);
+		if (!$account) {
+			return 'failed';
+		}
+
+		$data = $this->rtnfch_prepare_payment_data($order, $account['public_key']);
+		if (!is_array($data) || ($data['result'] ?? '') === 'fail') {
+			return 'failed';
+		}
+		$data['reference'] = (string) $order->get_meta('_rtnfch_voucher_reference', true);
+		$data['items']     = $this->rtnfch_get_voucher_items($order);
+
+		$raw      = wp_json_encode($data);
+		$response = wp_remote_post(esc_url_raw($this->get_api_url('/voucher/send')), [
+			'method'    => 'POST',
+			'timeout'   => 20,
+			'body'      => $raw,
+			'headers'   => rtnfch_signed_headers($account['public_key'], $account['secret_key'], $raw),
+			'sslverify' => true,
+		]);
+		$body = is_wp_error($response) ? [] : json_decode(wp_remote_retrieve_body($response), true);
+
+		if (!is_array($body) || ($body['status'] ?? '') !== 'success') {
+			RTNFCH_Logger::warning('[Order #' . $order->get_id() . '] Voucher resend refused', ['response' => is_array($body) ? rtnfch_log_excerpt($body) : null]);
+			return 'failed';
+		}
+
+		$link = rtnfch_voucher_link($body['data']['purchase_url'] ?? '');
+		if ($link !== '') {
+			$order->update_meta_data('_rtnfch_voucher_purchase_url', $link);
+		}
+		$order->add_order_note(__('The customer asked for the payment email again. RT sent the same voucher again.', 'rt-nft-checkout'));
+		$order->save();
+
+		return 'sent';
 	}
 
 	private function is_block_checkout_request() {

@@ -263,7 +263,8 @@
             });
 
             $summary.append(
-                row('Amount due', details.amount_due || '', 'rt-nft-checkout-order-received__row--total')
+                row('Email', details.email || ''),
+                row('Total', details.amount_due || '', 'rt-nft-checkout-order-received__row--total')
             );
 
             const $panel = $('<div>', {
@@ -278,7 +279,7 @@
                 }).html(CHECK_ICON),
 
                 $('<h2>', { 'class': 'rt-nft-checkout-order-received__title' })
-                    .text('Order received'),
+                    .text('Almost done – check your email'),
 
                 // Wording kept in step with rtnfch_voucher_notice_html() (PHP).
                 $('<p>', { 'class': 'rt-nft-checkout-order-received__lead' }).text(
@@ -300,7 +301,9 @@
                     text('No further action is needed here - check the inbox at '),
                     $('<strong>').text(details.email || ''),
                     text(' for the DPRV email.')
-                )
+                ),
+
+                this.buildResendForm(details.resend)
             );
 
             // Replace the checkout with the panel.
@@ -324,6 +327,38 @@
             }, 300);
 
             $panel[0].focus({ preventScroll: true });
+        },
+
+        /**
+         * BANK-1165: "Resend voucher" posts to the order-received page, which
+         * sends the same voucher again and shows the result there. Same form
+         * as rtnfch_order_received_html() (PHP).
+         */
+        buildResendForm: function (resend) {
+
+            if (!resend || !resend.action) {
+                return '';
+            }
+
+            const hidden = function (name, value) {
+                return $('<input>', { type: 'hidden', name: name, value: String(value || '') });
+            };
+
+            return $('<form>', {
+                'class': 'rt-nft-checkout-order-received__resend',
+                method: 'post',
+                action: resend.action
+            }).append(
+                hidden('rtnfch_resend_voucher', '1'),
+                hidden('order_id', resend.order_id),
+                hidden('key', resend.key),
+                hidden('rtnfch_resend_nonce', resend.nonce),
+                $('<span>').text('No email yet?'),
+                $('<button>', {
+                    type: 'submit',
+                    'class': 'button rt-nft-checkout-order-received__resend-button'
+                }).text('Resend voucher')
+            );
         },
 
         /* =========================================================

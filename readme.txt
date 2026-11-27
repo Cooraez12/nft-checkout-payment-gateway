@@ -6,7 +6,7 @@ Tested up to: 7.2
 Requires PHP: 8.0
 WC requires at least: 6.5.4
 WC tested up to: 11.3
-Stable tag: 1.0.9
+Stable tag: 1.0.10
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -69,6 +69,10 @@ Yes. Turn on sandbox mode and enter the sandbox keys from your RT dashboard. No 
 
 == Changelog ==
 
+= 1.0.10 =
+* After checkout, shoppers see the "Almost done – check your email" page at the top of the order page, with the order, total, email and voucher steps, in block and classic checkouts and block themes.
+* New "Resend voucher" button: sends the same payment email again (once a minute at most). No new order or payment link.
+
 = 1.0.9 =
 * Tested with WordPress 7.2 and WooCommerce 11.3.
 * Settings page no longer uses the jQuery function that jQuery 4 removes.
@@ -120,6 +124,9 @@ Cancelled orders now show as cancelled in RT and their payment e-mail stops work
 * Initial release.
 
 == Upgrade Notice ==
+
+= 1.0.10 =
+Shoppers see the "Almost done – check your email" page after checkout, with a Resend voucher button.
 
 = 1.0.9 =
 Compatibility update for WordPress 7.2. No change to how payments work.
